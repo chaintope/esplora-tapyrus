@@ -17,8 +17,6 @@ $ git clone https://github.com/blockstream/electrs && cd electrs
 $ git checkout new-index
 $ cargo run --release --bin electrs -- -vvvv --daemon-dir ~/.bitcoin
 
-# Or for liquid:
-$ cargo run --features liquid --release --bin electrs -- -vvvv --network liquid --daemon-dir ~/.liquid
 ```
 
 See [electrs's original documentation](https://github.com/romanz/electrs/blob/master/doc/usage.md) for more detailed instructions.
@@ -54,9 +52,6 @@ but instead queried from bitcoind on demand.
 
   With these new indexes, bitcoind is no longer queried to serve user requests and is only polled
   periodically for new blocks and for syncing the mempool.
-
-- Support for Liquid and other Elements-based networks, including CT, peg-in/out and multi-asset.
-  (requires enabling the `liquid` feature flag using `--features liquid`)
 
 ### CLI options
 

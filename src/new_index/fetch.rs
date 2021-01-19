@@ -3,10 +3,7 @@ use crate::chain::Block;
 use bitcoin::{BitcoinHash, BlockHash};
 use rayon::prelude::*;
 
-#[cfg(not(feature = "liquid"))]
 use bitcoin::consensus::encode::{deserialize, Decodable};
-#[cfg(feature = "liquid")]
-use elements::encode::{deserialize, Decodable};
 
 use std::collections::HashMap;
 use std::fs;

@@ -13,7 +13,6 @@ edition = "2018"
 
 [features]
 default = [ "rocksdb" ]
-liquid = [ "elements" ]
 electrum-discovery = [ "electrum-client"]
 oldcpu = [ "rocksdb-oldcpu" ]
 
@@ -61,11 +60,6 @@ electrum-client = { version = "0.1.0-beta.6", optional = true }
 version = "0.23.0"
 features = ["use-serde"]
 
-[dependencies.elements]
-optional = true
-version = "0.12.1"
-features = ["serde-feature"]
-
 [dev-dependencies]
 tempfile = "3.0"
 
@@ -77,11 +71,3 @@ codegen-units = 1
 [patch.crates-io.bitcoin]
 git = "https://github.com/blockstream/rust-bitcoin"
 rev = "0.23-electrs"
-
-[patch.crates-io.elements]
-git = "https://github.com/elementsproject/rust-elements"
-rev = "98e0c4ba1b55cd876d1d8bcff64bcf01c4c370b6"
-
-[patch.crates-io.electrum-client]
-git = "https://github.com/Blockstream/rust-electrum-client"
-rev = "bd783aa70604fa1a0d8b29a3459326c640001354" # add-peer
