@@ -407,7 +407,6 @@ dependencies = [
  "crossbeam-channel",
  "dirs",
  "electrum-client",
- "elements",
  "error-chain",
  "glob",
  "hex 0.4.2",
@@ -441,7 +440,8 @@ dependencies = [
 [[package]]
 name = "electrum-client"
 version = "0.1.0-beta.6"
-source = "git+https://github.com/Blockstream/rust-electrum-client?rev=bd783aa70604fa1a0d8b29a3459326c640001354#bd783aa70604fa1a0d8b29a3459326c640001354"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cf4668e56618a33a31a2dd70db4c8d90da6e5ad80fc67ed627be35f2beeb8d4"
 dependencies = [
  "bitcoin",
  "log",
@@ -451,16 +451,6 @@ dependencies = [
  "socks",
  "webpki",
  "webpki-roots",
-]
-
-[[package]]
-name = "elements"
-version = "0.12.1"
-source = "git+https://github.com/elementsproject/rust-elements?rev=98e0c4ba1b55cd876d1d8bcff64bcf01c4c370b6#98e0c4ba1b55cd876d1d8bcff64bcf01c4c370b6"
-dependencies = [
- "bitcoin",
- "bitcoin_hashes",
- "serde",
 ]
 
 [[package]]

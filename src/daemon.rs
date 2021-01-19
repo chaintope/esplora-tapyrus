@@ -13,10 +13,7 @@ use glob;
 use hex;
 use serde_json::{from_str, from_value, Value};
 
-#[cfg(not(feature = "liquid"))]
 use bitcoin::consensus::encode::{deserialize, serialize};
-#[cfg(feature = "liquid")]
-use elements::encode::{deserialize, serialize};
 
 use crate::chain::{Block, BlockHeader, Network, Transaction};
 use crate::metrics::{HistogramOpts, HistogramVec, Metrics};
