@@ -37,13 +37,6 @@ pub struct Config {
     pub utxos_limit: usize,
     pub electrum_txs_limit: usize,
     pub electrum_banner: String,
-
-    #[cfg(feature = "electrum-discovery")]
-    pub electrum_public_hosts: Option<crate::electrum::ServerHosts>,
-    #[cfg(feature = "electrum-discovery")]
-    pub electrum_announce: bool,
-    #[cfg(feature = "electrum-discovery")]
-    pub tor_proxy: Option<std::net::SocketAddr>,
 }
 
 fn str_to_socketaddr(address: &str, what: &str) -> SocketAddr {
@@ -108,25 +101,25 @@ impl Config {
             .arg(
                 Arg::with_name("electrum_rpc_addr")
                     .long("electrum-rpc-addr")
-                    .help("Electrum server JSONRPC 'addr:port' to listen on (default: '127.0.0.1:50001' for mainnet, '127.0.0.1:60001' for testnet and '127.0.0.1:60401' for regtest)")
+                    .help("Electrum server JSONRPC 'addr:port' to listen on (default: '127.0.0.1:50001' for prod and '127.0.0.1:60001' for dev)")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("http_addr")
                     .long("http-addr")
-                    .help("HTTP server 'addr:port' to listen on (default: '127.0.0.1:3000' for mainnet, '127.0.0.1:3001' for testnet and '127.0.0.1:3002' for regtest)")
+                    .help("HTTP server 'addr:port' to listen on (default: '127.0.0.1:3000' for prod, and '127.0.0.1:3002' for dev)")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("daemon_rpc_addr")
                     .long("daemon-rpc-addr")
-                    .help("Bitcoin daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:8332 for mainnet, 127.0.0.1:18332 for testnet and 127.0.0.1:18443 for regtest)")
+                    .help("Bitcoin daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:8332 for prod and 127.0.0.1:18443 for dev)")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("monitoring_addr")
                     .long("monitoring-addr")
-                    .help("Prometheus monitoring 'addr:port' to listen on (default: 127.0.0.1:4224 for mainnet, 127.0.0.1:14224 for testnet and 127.0.0.1:24224 for regtest)")
+                    .help("Prometheus monitoring 'addr:port' to listen on (default: 127.0.0.1:4224 for prod and 127.0.0.1:24224 for dev)")
                     .takes_value(true),
             )
             .arg(
@@ -187,23 +180,6 @@ impl Config {
                     .takes_value(true),
             );
 
-        #[cfg(feature = "electrum-discovery")]
-        let args = args.arg(
-                Arg::with_name("electrum_public_hosts")
-                    .long("electrum-public-hosts")
-                    .help("A dictionary of hosts where the Electrum server can be reached at. Required to enable server discovery. See https://electrumx.readthedocs.io/en/latest/protocol-methods.html#server-features")
-                    .takes_value(true)
-            ).arg(
-                Arg::with_name("electrum_announce")
-                    .long("electrum-announce")
-                    .help("Announce the Electrum server to other servers")
-            ).arg(
-            Arg::with_name("tor_proxy")
-                .long("tor-proxy")
-                .help("ip:addr of socks proxy for accessing onion hosts")
-                .takes_value(true),
-        );
-
         let m = args.get_matches();
 
         let network_name = m.value_of("network").unwrap_or("mainnet");
@@ -212,24 +188,20 @@ impl Config {
         let db_path = db_dir.join(network_name);
 
         let default_daemon_port = match network_type {
-            Network::Bitcoin => 8332,
-            Network::Testnet => 18332,
-            Network::Regtest => 18443,
+            Network::Prod => 8332,
+            Network::Dev => 18332,
         };
         let default_electrum_port = match network_type {
-            Network::Bitcoin => 50001,
-            Network::Testnet => 60001,
-            Network::Regtest => 60401,
+            Network::Prod => 50001,
+            Network::Dev => 60001,
         };
         let default_http_port = match network_type {
-            Network::Bitcoin => 3000,
-            Network::Testnet => 3001,
-            Network::Regtest => 3002,
+            Network::Prod => 3000,
+            Network::Dev => 3001,
         };
         let default_monitoring_port = match network_type {
-            Network::Bitcoin => 4224,
-            Network::Testnet => 14224,
-            Network::Regtest => 24224,
+            Network::Prod => 4224,
+            Network::Dev => 14224,
         };
 
         let daemon_rpc_addr: SocketAddr = str_to_socketaddr(
@@ -264,9 +236,8 @@ impl Config {
                 default_dir
             });
         match network_type {
-            Network::Bitcoin => (),
-            Network::Testnet => daemon_dir.push("testnet3"),
-            Network::Regtest => daemon_dir.push("regtest"),
+            Network::Prod => (),
+            Network::Dev => (),
         }
         let blocks_dir = m
             .value_of("blocks_dir")
@@ -278,11 +249,6 @@ impl Config {
             || format!("Welcome to electrs-esplora {}", ELECTRS_VERSION),
             |s| s.into(),
         );
-
-        #[cfg(feature = "electrum-discovery")]
-        let electrum_public_hosts = m
-            .value_of("electrum_public_hosts")
-            .map(|s| serde_json::from_str(s).expect("invalid --electrum-public-hosts"));
 
         let mut log = stderrlog::new();
         log.verbosity(m.occurrences_of("verbosity") as usize);
@@ -314,12 +280,6 @@ impl Config {
             cors: m.value_of("cors").map(|s| s.to_string()),
             precache_scripts: m.value_of("precache_scripts").map(|s| s.to_string()),
 
-            #[cfg(feature = "electrum-discovery")]
-            electrum_public_hosts,
-            #[cfg(feature = "electrum-discovery")]
-            electrum_announce: m.is_present("electrum_announce"),
-            #[cfg(feature = "electrum-discovery")]
-            tor_proxy: m.value_of("tor_proxy").map(|s| s.parse().unwrap()),
         };
         eprintln!("{:?}", config);
         config

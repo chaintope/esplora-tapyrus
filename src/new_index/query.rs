@@ -11,7 +11,7 @@ use crate::errors::*;
 use crate::new_index::{ChainQuery, Mempool, ScriptStats, SpendingInput, Utxo};
 use crate::util::{is_spendable, BlockId, Bytes, TransactionStatus};
 
-use bitcoin::Txid;
+use tapyrus::Txid;
 
 
 const FEE_ESTIMATES_TTL: u64 = 60; // seconds
@@ -157,7 +157,7 @@ impl Query {
     }
 
     pub fn estimate_fee(&self, conf_target: u16) -> Option<f64> {
-        if self.config.network_type == Network::Regtest {
+        if self.config.network_type == Network::Dev {
             return self.get_relayfee().ok();
         }
         if let (ref cache, Some(cache_time)) = *self.cached_estimates.read().unwrap() {

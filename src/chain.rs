@@ -1,9 +1,7 @@
-pub use bitcoin::{util::address, Block, BlockHeader, OutPoint, Transaction, TxIn, TxOut};
+pub use tapyrus::{util::address, Block, BlockHeader, OutPoint, Transaction, TxIn, TxOut};
 
-use bitcoin::blockdata::constants::genesis_block;
-use bitcoin::network::constants::Network as BNetwork;
-use bitcoin::util::hash::BitcoinHash;
-use bitcoin::BlockHash;
+use tapyrus::network::constants::Network as BNetwork;
+use tapyrus::BlockHash;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -17,35 +15,23 @@ lazy_static! {
 
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Serialize, Ord, PartialOrd, Eq)]
 pub enum Network {
-    Bitcoin,
-    Testnet,
-    Regtest,
+    Prod,
+    Dev
 }
 
 impl Network {
-    pub fn genesis_hash(self) -> BlockHash {
-        if let Some(block_hash) = CACHED_GENESIS.read().unwrap().get(&self) {
-            return *block_hash;
-        }
-
-        let block_hash = genesis_block(BNetwork::from(self)).bitcoin_hash();
-        CACHED_GENESIS.write().unwrap().insert(self, block_hash);
-        block_hash
-    }
 
     pub fn magic(self) -> u32 {
         match self {
-            Network::Bitcoin => 0xD9B4_BEF9,
-            Network::Testnet => 0x0709_110B,
-            Network::Regtest => 0xDAB5_BFFA,
+            Network::Prod => 0xD9B4_BEF9,
+            Network::Dev => 0x0709_110B,
         }
     }
 
     pub fn names() -> Vec<String> {
         return vec![
-            "mainnet".to_string(),
-            "testnet".to_string(),
-            "regtest".to_string(),
+            "prod".to_string(),
+            "dev".to_string(),
         ];
     }
 }
@@ -53,10 +39,9 @@ impl Network {
 impl From<&str> for Network {
     fn from(network_name: &str) -> Self {
         match network_name {
-            "mainnet" => Network::Bitcoin,
-            "testnet" => Network::Testnet,
-            "regtest" => Network::Regtest,
-            _ => panic!("unsupported Bitcoin network: {:?}", network_name),
+            "prod" => Network::Prod,
+            "dev" => Network::Dev,
+            _ => panic!("unsupported Tapyrus network: {:?}", network_name),
         }
     }
 }
@@ -64,9 +49,8 @@ impl From<&str> for Network {
 impl From<Network> for BNetwork {
     fn from(network: Network) -> Self {
         match network {
-            Network::Bitcoin => BNetwork::Bitcoin,
-            Network::Testnet => BNetwork::Testnet,
-            Network::Regtest => BNetwork::Regtest,
+            Network::Prod => BNetwork::Prod,
+            Network::Dev => BNetwork::Dev,
         }
     }
 }
@@ -74,9 +58,8 @@ impl From<Network> for BNetwork {
 impl From<BNetwork> for Network {
     fn from(network: BNetwork) -> Self {
         match network {
-            BNetwork::Bitcoin => Network::Bitcoin,
-            BNetwork::Regtest => Network::Regtest,
-            BNetwork::Testnet => Network::Testnet, // @FIXME
+            BNetwork::Prod => Network::Prod,
+            BNetwork::Dev => Network::Dev,
         }
     }
 }

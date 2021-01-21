@@ -1,13 +1,13 @@
-use bitcoin::blockdata::script::Script;
-use bitcoin::hashes::sha256d::Hash as Sha256dHash;
-use bitcoin::util::merkleblock::MerkleBlock;
-use bitcoin::{BlockHash, Txid, VarInt};
+use tapyrus::blockdata::script::Script;
+use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::util::merkleblock::MerkleBlock;
+use tapyrus::{BlockHash, Txid, VarInt};
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use itertools::Itertools;
 use rayon::prelude::*;
 
-use bitcoin::consensus::encode::{deserialize, serialize};
+use tapyrus::consensus::encode::{deserialize, serialize};
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;

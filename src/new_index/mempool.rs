@@ -1,9 +1,9 @@
 use arraydeque::{ArrayDeque, Wrapping};
-use bitcoin::consensus::encode::deserialize;
-use bitcoin::Txid;
+use tapyrus::consensus::encode::deserialize;
+use tapyrus::Txid;
 use itertools::Itertools;
 
-use bitcoin::consensus::encode::serialize;
+use tapyrus::consensus::encode::serialize;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::iter::FromIterator;

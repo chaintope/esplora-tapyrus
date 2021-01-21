@@ -1,20 +1,13 @@
 mod server;
 pub use server::RPC;
 
-#[cfg(feature = "electrum-discovery")]
-mod client;
-#[cfg(feature = "electrum-discovery")]
-mod discovery;
-#[cfg(feature = "electrum-discovery")]
-pub use {client::Client, discovery::DiscoveryManager};
-
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 
-use bitcoin::BlockHash;
+use tapyrus::BlockHash;
 
 use crate::errors::ResultExt;
 use crate::util::BlockId;
@@ -35,7 +28,6 @@ pub type ServerHosts = HashMap<Hostname, ServerPorts>;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerFeatures {
     pub hosts: ServerHosts,
-    pub genesis_hash: BlockHash,
     pub server_version: String,
     pub protocol_min: ProtocolVersion,
     pub protocol_max: ProtocolVersion,

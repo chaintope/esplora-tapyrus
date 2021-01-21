@@ -17,7 +17,7 @@ use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
 use std::thread;
 
 use crate::chain::BlockHeader;
-use bitcoin::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::net::SocketAddr;
 
@@ -135,7 +135,7 @@ pub fn create_socket(addr: &SocketAddr) -> Socket {
 ///
 /// Copied from https://github.com/rust-bitcoin/rust-bitcoincore-rpc/blob/master/json/src/lib.rs
 pub mod serde_hex {
-    use bitcoin::hashes::hex::{FromHex, ToHex};
+    use tapyrus::hashes::hex::{FromHex, ToHex};
     use serde::de::Error;
     use serde::{Deserializer, Serializer};
 
@@ -149,7 +149,7 @@ pub mod serde_hex {
     }
 
     pub mod opt {
-        use bitcoin::hashes::hex::{FromHex, ToHex};
+        use tapyrus::hashes::hex::{FromHex, ToHex};
         use serde::de::Error;
         use serde::{Deserializer, Serializer};
 

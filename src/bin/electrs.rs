@@ -1,4 +1,4 @@
-extern crate bitcoin;
+extern crate tapyrus;
 extern crate error_chain;
 #[macro_use]
 extern crate log;
