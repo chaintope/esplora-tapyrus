@@ -1,4 +1,4 @@
-use bitcoin::{BlockHash, Txid};
+use tapyrus::{BlockHash, Txid};
 
 use crate::chain::{OutPoint, Transaction, TxIn, TxOut};
 use crate::util::BlockId;

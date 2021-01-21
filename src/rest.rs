@@ -8,10 +8,10 @@ use crate::util::{
     BlockId, FullHash, TransactionStatus,
 };
 
-use bitcoin::consensus::encode;
-use bitcoin::hashes::hex::{FromHex, ToHex};
-use bitcoin::hashes::Error as HashError;
-use bitcoin::{BitcoinHash, BlockHash, Script, Txid};
+use tapyrus::consensus::encode;
+use tapyrus::hashes::hex::{FromHex, ToHex};
+use tapyrus::hashes::Error as HashError;
+use tapyrus::{BlockHash, Script, Txid};
 use hex::{self, FromHexError};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Response, Server, StatusCode};
@@ -44,7 +44,7 @@ const CONF_FINAL: usize = 10; // reorgs deeper than this are considered unlikely
 struct BlockValue {
     id: String,
     height: u32,
-    version: u32,
+    version: i32,
     timestamp: u32,
     tx_count: u32,
     size: u32,
@@ -52,17 +52,13 @@ struct BlockValue {
     merkle_root: String,
     previousblockhash: Option<String>,
     mediantime: u32,
-
-    nonce: u32,
-    bits: u32,
-    difficulty: u64,
 }
 
 impl BlockValue {
     fn new(blockhm: BlockHeaderMeta, network: Network) -> Self {
         let header = blockhm.header_entry.header();
         BlockValue {
-            id: header.bitcoin_hash().to_hex(),
+            id: header.block_hash().to_hex(),
             height: blockhm.header_entry.height() as u32,
             version: header.version,
             timestamp: header.time,
@@ -76,10 +72,6 @@ impl BlockValue {
                 None
             },
             mediantime: blockhm.mtp,
-
-            bits: header.bits,
-            nonce: header.nonce,
-            difficulty: header.difficulty(bitcoin::Network::from(network)),
         }
     }
 }
@@ -87,7 +79,7 @@ impl BlockValue {
 #[derive(Serialize, Deserialize)]
 struct TransactionValue {
     txid: Txid,
-    version: u32,
+    version: i32,
     locktime: u32,
     vin: Vec<TxInValue>,
     vout: Vec<TxOutValue>,
@@ -788,7 +780,7 @@ fn handle_request(
 
             let height = query
                 .chain()
-                .height_by_hash(&merkleblock.header.bitcoin_hash());
+                .height_by_hash(&merkleblock.header.block_hash());
 
             http_message(
                 StatusCode::OK,
@@ -940,10 +932,7 @@ fn to_scripthash(
 fn address_to_scripthash(addr: &str, network: Network) -> Result<FullHash, HttpError> {
     let addr = address::Address::from_str(addr)?;
 
-    let is_expected_net = {
-        let addr_network = Network::from(addr.network);
-        addr_network == network || (addr_network == Network::Testnet && network == Network::Regtest)
-    };
+    let is_expected_net = Network::from(addr.network) == network;
 
     if !is_expected_net {
         bail!(HttpError::from("Address on invalid network".to_string()))
@@ -993,14 +982,14 @@ impl From<FromHexError> for HttpError {
         HttpError::from("Invalid hex string".to_string())
     }
 }
-impl From<bitcoin::hashes::hex::Error> for HttpError {
-    fn from(_e: bitcoin::hashes::hex::Error) -> Self {
+impl From<tapyrus::hashes::hex::Error> for HttpError {
+    fn from(_e: tapyrus::hashes::hex::Error) -> Self {
         //HttpError::from(e.description().to_string())
         HttpError::from("Invalid hex string".to_string())
     }
 }
-impl From<bitcoin::util::address::Error> for HttpError {
-    fn from(_e: bitcoin::util::address::Error) -> Self {
+impl From<tapyrus::util::address::Error> for HttpError {
+    fn from(_e: tapyrus::util::address::Error) -> Self {
         //HttpError::from(e.description().to_string())
         HttpError::from("Invalid Bitcoin address".to_string())
     }

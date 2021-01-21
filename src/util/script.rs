@@ -1,4 +1,4 @@
-use bitcoin::blockdata::script::{Instruction::PushBytes, Script};
+use tapyrus::blockdata::script::{Instruction::PushBytes, Script};
 
 use crate::chain::Network;
 use crate::chain::{TxIn, TxOut};
@@ -10,7 +10,7 @@ pub struct InnerScripts {
 
 pub fn script_to_address(script: &Script, network: Network) -> Option<String> {
     match network {
-        _ => bitcoin::Address::from_script(script, network.into()).map(|s| s.to_string()),
+        _ => tapyrus::Address::from_script(script, network.into()).map(|s| s.to_string()),
     }
 }
 
@@ -23,7 +23,7 @@ pub fn get_script_asm(script: &Script) -> String {
 pub fn get_innerscripts(txin: &TxIn, prevout: &TxOut) -> InnerScripts {
     // Wrapped redeemScript for P2SH spends
     let redeem_script = if prevout.script_pubkey.is_p2sh() {
-        if let Some(PushBytes(redeemscript)) = txin.script_sig.iter(true).last() {
+        if let Some(Ok(PushBytes(redeemscript))) = txin.script_sig.instructions_minimal().last() {
             Some(Script::from(redeemscript.to_vec()))
         } else {
             None

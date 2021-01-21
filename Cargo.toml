@@ -13,7 +13,6 @@ edition = "2018"
 
 [features]
 default = [ "rocksdb" ]
-electrum-discovery = [ "electrum-client"]
 oldcpu = [ "rocksdb-oldcpu" ]
 
 [dependencies]
@@ -53,11 +52,8 @@ hyperlocal = "0.7"
 # close to same tokio version as dependent by hyper v0.13.6 and hyperlocal 0.7 -- things can go awry if they mismatch
 tokio = { version = "=0.2.6", features = ["sync", "macros"] }
 
-# optional dependencies for electrum-discovery
-electrum-client = { version = "0.1.0-beta.6", optional = true }
-
-[dependencies.bitcoin]
-version = "0.23.0"
+[dependencies.tapyrus]
+git = "https://github.com/Yamaguchi/rust-tapyrus"
 features = ["use-serde"]
 
 [dev-dependencies]
@@ -67,7 +63,3 @@ tempfile = "3.0"
 lto = true
 panic = 'abort'
 codegen-units = 1
-
-[patch.crates-io.bitcoin]
-git = "https://github.com/blockstream/rust-bitcoin"
-rev = "0.23-electrs"

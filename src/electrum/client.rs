@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::net::ToSocketAddrs;
 
-use bitcoin::{hashes::Hash, BlockHash};
+use tapyrus::{hashes::Hash, BlockHash};
 use electrum_client::client::{
     Client as RClient, ElectrumPlaintextStream, ElectrumProxyStream, ElectrumSslStream,
 };
@@ -66,12 +66,9 @@ impl Client {
 impl TryFrom<ServerFeaturesRes> for ServerFeatures {
     type Error = Error;
     fn try_from(mut features: ServerFeaturesRes) -> Result<Self, Self::Error> {
-        features.genesis_hash.reverse();
-
         Ok(ServerFeatures {
             // electrum-client doesn't retain the hosts map data, but we already have it from the add_peer request
             hosts: HashMap::new(),
-            genesis_hash: BlockHash::from_inner(features.genesis_hash),
             server_version: features.server_version,
             protocol_min: features
                 .protocol_min
