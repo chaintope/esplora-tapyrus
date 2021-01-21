@@ -1,7 +1,7 @@
-extern crate electrs;
+extern crate esplora_tapyrus;
 
 use bincode::Options;
-use electrs::{
+use esplora_tapyrus::{
     config::Config,
     new_index::{Store, TxHistoryKey},
 };

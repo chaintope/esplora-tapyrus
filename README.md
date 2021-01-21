@@ -1,8 +1,8 @@
 # Esplora - Electrs backend API
 
-A block chain index engine and HTTP API written in Rust based on [romanz/electrs](https://github.com/romanz/electrs).
-
-Used as the backend for the [Esplora block explorer](https://github.com/Blockstream/esplora) powering [blockstream.info](https://blockstream.info/).
+This is forked from [Blockstream/electrs](https://github.com/Blockstream/electrs). So, features and
+specifications are almost same with original. You can find documents for extended specification for
+tapyrus here [tapyrus doc](https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus).
 
 API documentation [is available here](https://github.com/blockstream/esplora/blob/master/API.md).
 
