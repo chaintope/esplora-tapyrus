@@ -1,4 +1,4 @@
-extern crate electrs;
+extern crate esplora_tapyrus;
 
 #[macro_use]
 extern crate log;
@@ -9,7 +9,7 @@ fn main() {
 
     use tapyrus::blockdata::script::Script;
     use tapyrus::consensus::encode::deserialize;
-    use electrs::{
+    use esplora_tapyrus::{
         chain::Transaction,
         config::Config,
         daemon::Daemon,

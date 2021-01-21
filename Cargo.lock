@@ -374,48 +374,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
-name = "electrs"
-version = "0.4.1"
-dependencies = [
- "arraydeque",
- "arrayref",
- "base64 0.13.0",
- "bincode",
- "clap",
- "crossbeam-channel",
- "dirs",
- "error-chain",
- "glob",
- "hex",
- "hyper",
- "hyperlocal",
- "itertools",
- "lazy_static",
- "libc",
- "log",
- "num_cpus",
- "page_size",
- "prometheus",
- "rayon",
- "rocksdb 0.12.4",
- "rocksdb 0.15.0",
- "rust-crypto",
- "serde",
- "serde_derive",
- "serde_json",
- "signal-hook",
- "socket2",
- "stderrlog",
- "sysconf",
- "tapyrus",
- "tempfile",
- "time 0.2.23",
- "tiny_http",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,6 +415,48 @@ checksum = "2d2f06b9cac1506ece98fe3231e3cc9c4410ec3d5b1f24ae1c8946f0742cdefc"
 dependencies = [
  "backtrace",
  "version_check",
+]
+
+[[package]]
+name = "esplora-tapyrus"
+version = "0.4.1"
+dependencies = [
+ "arraydeque",
+ "arrayref",
+ "base64 0.13.0",
+ "bincode",
+ "clap",
+ "crossbeam-channel",
+ "dirs",
+ "error-chain",
+ "glob",
+ "hex",
+ "hyper",
+ "hyperlocal",
+ "itertools",
+ "lazy_static",
+ "libc",
+ "log",
+ "num_cpus",
+ "page_size",
+ "prometheus",
+ "rayon",
+ "rocksdb 0.12.4",
+ "rocksdb 0.15.0",
+ "rust-crypto",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "signal-hook",
+ "socket2",
+ "stderrlog",
+ "sysconf",
+ "tapyrus",
+ "tempfile",
+ "time 0.2.23",
+ "tiny_http",
+ "tokio",
+ "url",
 ]
 
 [[package]]

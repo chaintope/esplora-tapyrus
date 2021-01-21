@@ -1,13 +1,13 @@
 [package]
-name = "electrs"
+name = "esplora-tapyrus"
 version = "0.4.1"
 authors = ["Roman Zeyde <me@romanzey.de>"]
 description = "An efficient re-implementation of Electrum Server in Rust"
 license = "MIT"
-homepage = "https://github.com/romanz/electrs"
-repository = "https://github.com/romanz/electrs"
-keywords = ["bitcoin", "electrum", "server", "index", "database"]
-documentation = "https://docs.rs/electrs/"
+homepage = "https://github.com/chaintope/esplora-tapyrus"
+repository = "https://github.com/chaintope/esplora-tapyrus"
+keywords = ["tapyrus", "electrum", "server", "index", "database"]
+documentation = "https://docs.rs/esplora-tapyrus/"
 readme = "README.md"
 edition = "2018"
 
