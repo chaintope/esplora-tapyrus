@@ -197,8 +197,8 @@ impl Config {
         let db_path = db_dir.join(network_name);
 
         let default_daemon_port = match network.network_type {
-            NetworkType::Prod => 8332,
-            NetworkType::Dev => 18332,
+            NetworkType::Prod => 2377,
+            NetworkType::Dev => 12381,
         };
         let default_electrum_port = match network.network_type {
             NetworkType::Prod => 50001,
