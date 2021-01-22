@@ -1,3 +1,5 @@
+[![Status](https://travis-ci.org/chaintope/esplora-tapyrus.png?branch=master)](https://travis-ci.org/chaintope/esplora-tapyrus)
+
 # Esplora - Electrs backend API
 
 This is forked from [Blockstream/electrs](https://github.com/Blockstream/electrs). So, features and
