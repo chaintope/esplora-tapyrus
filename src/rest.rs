@@ -50,8 +50,10 @@ struct BlockValue {
     size: u32,
     weight: u32,
     merkle_root: String,
+    im_merkle_root: String,
     previousblockhash: Option<String>,
     mediantime: u32,
+    signature: Option<String>,
 }
 
 impl BlockValue {
@@ -66,12 +68,14 @@ impl BlockValue {
             size: blockhm.meta.size,
             weight: blockhm.meta.weight,
             merkle_root: header.merkle_root.to_hex(),
+            im_merkle_root: header.im_merkle_root.to_hex(),
             previousblockhash: if header.prev_blockhash != BlockHash::default() {
                 Some(header.prev_blockhash.to_hex())
             } else {
                 None
             },
             mediantime: blockhm.mtp,
+            signature: header.proof.map(|p| encode::serialize_hex(&p))
         }
     }
 }
@@ -115,7 +119,7 @@ impl TransactionValue {
         let fee = get_tx_fee(&tx, &prevouts, config.network_type);
 
         TransactionValue {
-            txid: tx.txid(),
+            txid: tx.malfix_txid(),
             version: tx.version,
             locktime: tx.lock_time,
             vin: vins,
