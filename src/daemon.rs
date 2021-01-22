@@ -608,7 +608,7 @@ impl Daemon {
                 break;
             }
             let header = self.getblockheader(&blockhash)
-                .unwrap_or_else(|_| panic!("failed to get {} header", blockhash));
+                .chain_err(|| format!("failed to get {} header", blockhash))?;
             blockhash = header.prev_blockhash;
             new_headers.push(header);
         }
