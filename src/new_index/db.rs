@@ -17,7 +17,7 @@ pub struct ScanIterator<'a> {
     prefix: Vec<u8>,
     iter: rocksdb::DBIterator<'a>,
     done: bool,
-}
+} 
 
 impl<'a> Iterator for ScanIterator<'a> {
     type Item = DBRow;

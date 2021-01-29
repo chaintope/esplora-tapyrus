@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::blockdata::transaction::OutPoint;
 use tapyrus::Txid;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
@@ -20,6 +21,8 @@ use crate::electrum::{get_electrum_height, ProtocolVersion};
 use crate::errors::*;
 use crate::metrics::{Gauge, HistogramOpts, HistogramVec, MetricOpts, Metrics};
 use crate::new_index::Query;
+use crate::new_index::Utxo;
+use crate::open_assets::OpenAsset;
 use crate::util::electrum_merkle::{get_header_merkle_proof, get_id_from_pos, get_tx_merkle_proof};
 use crate::util::{
     create_socket, full_hash, spawn_thread, BlockId, BoolThen, Channel, FullHash, HeaderEntry,
@@ -95,6 +98,7 @@ struct Connection {
     chan: SyncChannel<Message>,
     stats: Arc<Stats>,
     txs_limit: usize,
+    enable_open_assets: bool,
 }
 
 impl Connection {
@@ -104,6 +108,7 @@ impl Connection {
         addr: SocketAddr,
         stats: Arc<Stats>,
         txs_limit: usize,
+        enable_open_assets: bool,
     ) -> Connection {
         Connection {
             query,
@@ -114,6 +119,7 @@ impl Connection {
             chan: SyncChannel::new(10),
             stats,
             txs_limit,
+            enable_open_assets,
         }
     }
 
@@ -218,6 +224,97 @@ impl Connection {
         Ok(json!(fee_rate / 100_000f64))
     }
 
+    fn utxo_to_json(&self, utxo: &Utxo, asset: Option<&OpenAsset>) -> Value {
+        match asset {
+            Some(asset) => {
+                json!({
+                    "height": utxo.confirmed.clone().map_or(0, |b| b.height),
+                    "tx_pos": utxo.vout,
+                    "tx_hash": utxo.txid,
+                    "value": utxo.value,
+                    "asset": {
+                        "asset_id": asset.asset_id.to_string(),
+                        "asset_quantity": asset.asset_quantity
+                    }
+                })
+            },
+            None => {
+                json!({
+                    "height": utxo.confirmed.clone().map_or(0, |b| b.height),
+                    "tx_pos": utxo.vout,
+                    "tx_hash": utxo.txid,
+                    "value": utxo.value,
+                })
+            }
+        }
+    }
+
+    fn blockchain_openassets_scripthash_listunspent(&self, params: &[Value]) -> Result<Value> {
+        let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
+        let utxos = self.query.utxo(&script_hash[..])?;
+        let assets = self.query.open_assets(&utxos)?;
+        Ok(json!(Value::Array(
+            utxos
+                .into_iter()
+                .map(|utxo| {
+                    let asset = assets.get(&OutPoint::new(utxo.txid, utxo.vout));
+                    (utxo, asset)
+                })
+                .map(|(utxo, asset)| self.utxo_to_json(&utxo, asset))
+                .collect()
+        )))
+    }
+
+    fn blockchain_openassets_scripthash_listcoloredunspent(
+        &self,
+        params: &[Value],
+    ) -> Result<Value> {
+        let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
+        let utxos = self.query.utxo(&script_hash[..])?;
+        let assets = self.query.open_assets(&utxos)?;
+        Ok(json!(Value::Array(
+            utxos
+                .into_iter()
+                .map(|utxo| {
+                    let asset = assets.get(&OutPoint::new(utxo.txid, utxo.vout));
+                    (utxo, asset)
+                })
+                .filter_map(|(utxo, asset_opt)| 
+                    match asset_opt {
+                        Some(_) => { Some((utxo, asset_opt)) },
+                        None => None
+                    }
+                )
+                .map(|(utxo, asset)| self.utxo_to_json(&utxo, asset))
+                .collect()
+        )))
+    }
+
+    fn blockchain_openassets_scripthash_listuncoloredunspent(
+        &self,
+        params: &[Value],
+    ) -> Result<Value> {
+        let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
+        let utxos = self.query.utxo(&script_hash[..])?;
+        let assets = self.query.open_assets(&utxos)?;
+        Ok(json!(Value::Array(
+            utxos
+                .into_iter()
+                .map(|utxo| {
+                    let asset = assets.get(&OutPoint::new(utxo.txid, utxo.vout));
+                    (utxo, asset)
+                })
+                .filter_map(|(utxo, asset_opt)| 
+                    match asset_opt {
+                        Some(_) => None,
+                        None => Some(utxo)
+                    }
+                )
+                .map(|utxo| self.utxo_to_json(&utxo, None))
+                .collect()
+        )))
+    }
+
     fn blockchain_relayfee(&self) -> Result<Value> {
         let relayfee = self.query.get_relayfee()?;
         // convert from sat/b to BTC/kB, as expected by Electrum clients
@@ -271,12 +368,7 @@ impl Connection {
         Ok(json!(Value::Array(
             utxos
                 .into_iter()
-                .map(|utxo| json!({
-                    "height": utxo.confirmed.map_or(0, |b| b.height),
-                    "tx_pos": utxo.vout,
-                    "tx_hash": utxo.txid,
-                    "value": utxo.value,
-                }))
+                .map(|utxo| self.utxo_to_json(&utxo, None))
                 .collect()
         )))
     }
@@ -356,6 +448,15 @@ impl Connection {
             "blockchain.block.headers" => self.blockchain_block_headers(&params),
             "blockchain.estimatefee" => self.blockchain_estimatefee(&params),
             "blockchain.headers.subscribe" => self.blockchain_headers_subscribe(),
+            "blockchain.openassets.scripthash.listunspent" if self.enable_open_assets => {
+                self.blockchain_openassets_scripthash_listunspent(&params)
+            }
+            "blockchain.openassets.scripthash.listcoloredunspent" if self.enable_open_assets => {
+                self.blockchain_openassets_scripthash_listcoloredunspent(&params)
+            }
+            "blockchain.openassets.scripthash.listuncoloredunspent" if self.enable_open_assets => {
+                self.blockchain_openassets_scripthash_listuncoloredunspent(&params)
+            }
             "blockchain.relayfee" => self.blockchain_relayfee(),
             "blockchain.scripthash.get_balance" => self.blockchain_scripthash_get_balance(&params),
             "blockchain.scripthash.get_history" => self.blockchain_scripthash_get_history(&params),
@@ -635,6 +736,7 @@ impl RPC {
         let notification = Channel::unbounded();
         let rpc_addr = config.electrum_rpc_addr;
         let txs_limit = config.electrum_txs_limit;
+        let enable_open_assets = config.enable_open_assets;
 
         RPC {
             notification: notification.sender(),
@@ -661,6 +763,7 @@ impl RPC {
                             addr,
                             stats,
                             txs_limit,
+                            enable_open_assets,
                         );
                         senders.lock().unwrap().push(conn.chan.sender());
                         conn.run();

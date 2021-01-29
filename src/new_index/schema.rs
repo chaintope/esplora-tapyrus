@@ -1,4 +1,5 @@
-use tapyrus::blockdata::script::Script;
+use tapyrus::blockdata::script::{ Builder, Script };
+use tapyrus::hashes::hex::{FromHex, ToHex};
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use tapyrus::util::merkleblock::MerkleBlock;
 use tapyrus::{BlockHash, Txid, VarInt};
@@ -18,6 +19,7 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{HistogramOpts, HistogramTimer, HistogramVec, Metrics};
+use crate::open_assets::OpenAsset;
 use crate::util::{
     full_hash, has_prevout, is_spendable, script_to_address, BlockHeaderMeta, BlockId, BlockMeta,
     BlockStatus, Bytes, HeaderEntry, HeaderList,
@@ -134,29 +136,6 @@ impl ScriptStats {
             funded_txo_sum: 0,
             spent_txo_sum: 0,
         }
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Asset {
-    pub asset_id: AssetId,
-    pub asset_quantity: u64,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct AssetId {
-    pub hash: bitcoin_hashes::hash160::Hash,
-}
-
-impl AssetId {
-    pub fn new(script: &Script) -> AssetId {
-        AssetId {
-            hash: bitcoin_hashes::hash160::Hash::hash(&script.to_bytes()),
-        }
-    }
-    pub fn from_hex(hex: &str) -> AssetId {
-        let script = Builder::from(hex::decode(hex).unwrap()).into_script();
-        AssetId::new(&script)
     }
 }
 
@@ -1040,6 +1019,7 @@ fn index_transaction(
                     txid,
                     vout: txo_index as u16,
                     value: txo.value,
+                    open_asset: None,
                 }),
             );
             rows.push(history.into_row());
@@ -1301,6 +1281,8 @@ pub struct FundingInfo {
     pub txid: FullHash,
     pub vout: u16,
     pub value: Value,
+    #[serde(skip)]
+    pub open_asset: Option<OpenAsset>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1511,6 +1493,34 @@ impl UtxoCacheRow {
 
     pub fn key(scripthash: &[u8]) -> Bytes {
         [b"U", scripthash].concat()
+    }
+
+    fn into_row(self) -> DBRow {
+        DBRow {
+            key: bincode::serialize(&self.key).unwrap(),
+            value: self.value,
+        }
+    }
+}
+
+struct OpenAssetCacheRow {
+    key: ScriptCacheKey,
+    value: Bytes,
+}
+
+impl OpenAssetCacheRow {
+    fn new(scripthash: &[u8], open_asset: &OpenAsset, blockhash: &BlockHash) -> Self {
+        OpenAssetCacheRow {
+            key: ScriptCacheKey {
+                code: b'o',
+                scripthash: full_hash(scripthash),
+            },
+            value: bincode::serialize(&open_asset).unwrap(),
+        }
+    }
+
+    pub fn key(scripthash: &[u8]) -> Bytes {
+        [b"o", scripthash].concat()
     }
 
     fn into_row(self) -> DBRow {

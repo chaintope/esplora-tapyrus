@@ -342,6 +342,7 @@ impl Mempool {
                             txid: txid_bytes,
                             vout: index as u16,
                             value: txo.value,
+                            open_asset: None,
                         }),
                     )
                 });

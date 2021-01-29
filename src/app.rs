@@ -1,4 +1,5 @@
-use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::hash_types::BlockHash;
+use tapyrus::network::constants::Network;
 use std::sync::{Arc, Mutex};
 
 use crate::{daemon, index, signal::Waiter, store};
@@ -9,7 +10,8 @@ pub struct App {
     store: store::DBStore,
     index: index::Index,
     daemon: daemon::Daemon,
-    tip: Mutex<Sha256dHash>,
+    tip: Mutex<BlockHash>,
+    config: Config,
 }
 
 impl App {
@@ -17,12 +19,14 @@ impl App {
         store: store::DBStore,
         index: index::Index,
         daemon: daemon::Daemon,
+        config: Config,
     ) -> Result<Arc<App>> {
         Ok(Arc::new(App {
             store,
             index,
             daemon: daemon.reconnect()?,
-            tip: Mutex::new(Sha256dHash::default()),
+            tip: Mutex::new(BlockHash::default()),
+            config: config,
         }))
     }
 
@@ -48,4 +52,5 @@ impl App {
         }
         Ok(new_block)
     }
+  
 }

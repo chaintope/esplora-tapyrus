@@ -37,6 +37,7 @@ pub struct Config {
     pub utxos_limit: usize,
     pub electrum_txs_limit: usize,
     pub electrum_banner: String,
+    pub enable_open_assets: bool,
 }
 
 fn str_to_socketaddr(address: &str, what: &str) -> SocketAddr {
@@ -170,6 +171,10 @@ impl Config {
                     .long("electrum-banner")
                     .help("Welcome banner for the Electrum server, shown in the console to clients.")
                     .takes_value(true)
+            ).arg(
+                Arg::with_name("enable_open_assets")
+                    .long("enable-open-assets")
+                    .help("Enable open assets feature")
             );
 
         #[cfg(unix)]
@@ -279,7 +284,7 @@ impl Config {
             index_unspendables: m.is_present("index_unspendables"),
             cors: m.value_of("cors").map(|s| s.to_string()),
             precache_scripts: m.value_of("precache_scripts").map(|s| s.to_string()),
-
+            enable_open_assets: m.is_present("enable_open_assets")
         };
         eprintln!("{:?}", config);
         config

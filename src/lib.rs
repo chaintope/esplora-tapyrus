@@ -29,6 +29,7 @@ pub mod electrum;
 pub mod errors;
 pub mod metrics;
 pub mod new_index;
+pub mod open_assets;
 pub mod rest;
 pub mod signal;
 pub mod util;
