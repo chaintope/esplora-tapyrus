@@ -1,5 +1,6 @@
 use rayon::prelude::*;
 
+use openassets_tapyrus::openassets::marker_output::TxOutExt;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
@@ -9,6 +10,7 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::new_index::{ChainQuery, Mempool, ScriptStats, SpendingInput, Utxo};
+use crate::open_assets::{compute_assets, OpenAsset};
 use crate::util::{is_spendable, BlockId, Bytes, TransactionStatus};
 
 use tapyrus::Txid;
@@ -143,6 +145,52 @@ impl Query {
             .collect()
     }
 
+    pub fn load_assets(&self, tx: &Transaction) -> Result<Vec<Option<OpenAsset>>> {
+        let network = tapyrus::network::constants::Network::from(self.config.network);
+        Ok(self.get_open_assets_colored_outputs(network, &tx))
+    }
+
+    fn get_open_assets_colored_outputs(
+        &self,
+        network_type: tapyrus::network::constants::Network,
+        txn: &Transaction,
+    ) -> Vec<Option<OpenAsset>> {
+        if txn.is_coin_base() {
+            txn.output.iter().map(|_| None).collect()
+        } else {
+            for (i, val) in txn.output.iter().enumerate() {
+                let payload = val.get_oa_payload();
+                if let Ok(marker) = payload {
+                    let prev_outs = txn
+                        .input
+                        .iter()
+                        .map(|input| {
+                            self.get_output(&input.previous_output.txid, input.previous_output.vout)
+                        })
+                        .collect();
+                    return compute_assets(
+                        prev_outs,
+                        i,
+                        txn,
+                        marker.quantities,
+                        network_type,
+                        &marker.metadata,
+                    );
+                }
+            }
+            txn.output.iter().map(|_| None).collect()
+        }
+    }
+
+    fn get_output(&self, txid: &Txid, index: u32) -> (TxOut, Option<OpenAsset>) {
+        let txn = self.lookup_txn(txid).expect("txn not found");
+        let colored_outputs = self.load_assets(&txn).expect("asset not found");
+        (
+            txn.output[index as usize].clone(),
+            colored_outputs[index as usize].clone(),
+        )
+    }
+
     pub fn get_tx_status(&self, txid: &Txid) -> TransactionStatus {
         TransactionStatus::from(self.chain.tx_confirming_block(txid))
     }
@@ -204,5 +252,24 @@ impl Query {
         let relayfee = self.daemon.get_relayfee()?;
         self.cached_relayfee.write().unwrap().replace(relayfee);
         Ok(relayfee)
+    }
+
+    pub fn open_assets(&self, utxos: &Vec<Utxo>) -> Result<HashMap<OutPoint, OpenAsset>> {
+        let network = tapyrus::network::constants::Network::from(self.config.network);
+        let mut map: HashMap<OutPoint, OpenAsset> = HashMap::new();
+        utxos.iter().for_each(|o| match self.lookup_txn(&o.txid) {
+            Some(tx) => {
+                let outputs = self.get_open_assets_colored_outputs(network, &tx);
+                match outputs.get(o.vout as usize) {
+                    Some(Some(asset)) => {
+                        map.insert(OutPoint::new(o.txid, o.vout), asset.clone());
+                    }
+                    Some(_) => {}
+                    None => {}
+                }
+            }
+            None => {}
+        });
+        Ok(map)
     }
 }

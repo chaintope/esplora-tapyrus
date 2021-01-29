@@ -154,6 +154,12 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_hashes"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b375d62f341cef9cd9e77793ec8f1db3fc9ce2e4d57e982c8fe697a2c16af3b6"
+
+[[package]]
+name = "bitcoin_hashes"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b0ab784be052cc1e915a78b8aaf5101eebbc2d0ab2b6f5124985f3677ae2bea"
@@ -438,6 +444,7 @@ dependencies = [
  "libc",
  "log",
  "num_cpus",
+ "openassets-tapyrus",
  "page_size",
  "prometheus",
  "rayon",
@@ -790,6 +797,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b294d6fa9ee409a054354afc4352b0b9ef7ca222c69b8812cbea9e7d2bf3783f"
 
 [[package]]
+name = "leb128"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
+
+[[package]]
 name = "libc"
 version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -985,6 +998,21 @@ name = "once_cell"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b631f7e854af39a1739f401cf34a8a013dfe09eac4fa4dba91e9768bd28168d"
+
+[[package]]
+name = "openassets-tapyrus"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8f001478c0e77911bb5eed574bedd268ed1fea2cd63deb1693be85e4ce168b3"
+dependencies = [
+ "bitcoin_hashes 0.7.6",
+ "byteorder",
+ "hex",
+ "leb128",
+ "serde",
+ "serde_json",
+ "tapyrus",
+]
 
 [[package]]
 name = "page_size"
@@ -1621,7 +1649,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "531da5de9edc4f127cde9058b234181a9f317acebe602a05f4e36e9e930c0556"
 dependencies = [
- "bitcoin_hashes",
+ "bitcoin_hashes 0.8.0",
  "rug",
  "secp256k1",
  "serde",

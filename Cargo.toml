@@ -34,7 +34,7 @@ socket2 = { version = "0.3.18", features = ["reuseport"] }
 num_cpus = "1.12.0"
 page_size = "0.4.2"
 prometheus = "0.11.0"
-openassets = { git = "https://github.com/chaintope/openassets-tapyrus/"}
+openassets-tapyrus = "0.2.3"
 rayon = "1.5.0"
 rocksdb = { version = "0.15.0", optional = true }
 rocksdb-oldcpu = { version = "0.12.4", optional = true, package = "rocksdb" }
