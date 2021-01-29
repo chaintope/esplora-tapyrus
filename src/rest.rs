@@ -75,7 +75,7 @@ impl BlockValue {
                 None
             },
             mediantime: blockhm.mtp,
-            signature: header.proof.map(|p| encode::serialize_hex(&p))
+            signature: header.proof.map(|p| encode::serialize_hex(&p)),
         }
     }
 }
