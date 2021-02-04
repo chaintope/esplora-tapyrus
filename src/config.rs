@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use stderrlog;
 
-use crate::chain::{ Network, NetworkId };
+use crate::chain::{Network, NetworkId};
 use crate::daemon::CookieGetter;
 
 use crate::errors::*;
@@ -192,7 +192,8 @@ impl Config {
 
         let network_name = m.value_of("network").unwrap_or("mainnet");
         let network_type = Network::from(network_name);
-        let network_id = NetworkId::from_str(m.value_of("network_id").unwrap_or("1")).expect("failed to get network id");
+        let network_id = NetworkId::from_str(m.value_of("network_id").unwrap_or("1"))
+            .expect("failed to get network id");
         let db_dir = Path::new(m.value_of("db_dir").unwrap_or("./db"));
         let db_path = db_dir.join(network_name);
 
