@@ -4,10 +4,11 @@ use std::fs;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 use stderrlog;
 
-use crate::chain::Network;
+use crate::chain::{ Network, NetworkId };
 use crate::daemon::CookieGetter;
 
 use crate::errors::*;
@@ -19,6 +20,7 @@ pub struct Config {
     // See below for the documentation of each field:
     pub log: stderrlog::StdErrLog,
     pub network_type: Network,
+    pub network_id: NetworkId,
     pub db_path: PathBuf,
     pub daemon_dir: PathBuf,
     pub blocks_dir: PathBuf,
@@ -105,6 +107,12 @@ impl Config {
                     .takes_value(true),
             )
             .arg(
+                Arg::with_name("network_id")
+                    .long("network-id")
+                    .help("Select tapyrus network id")
+                    .takes_value(true),
+            )
+            .arg(
                 Arg::with_name("http_addr")
                     .long("http-addr")
                     .help("HTTP server 'addr:port' to listen on (default: '127.0.0.1:3000' for prod, and '127.0.0.1:3002' for dev)")
@@ -184,6 +192,7 @@ impl Config {
 
         let network_name = m.value_of("network").unwrap_or("mainnet");
         let network_type = Network::from(network_name);
+        let network_id = NetworkId::from_str(m.value_of("network_id").unwrap_or("1")).expect("failed to get network id");
         let db_dir = Path::new(m.value_of("db_dir").unwrap_or("./db"));
         let db_path = db_dir.join(network_name);
 
@@ -261,6 +270,7 @@ impl Config {
         let config = Config {
             log,
             network_type,
+            network_id,
             db_path,
             daemon_dir,
             blocks_dir,
