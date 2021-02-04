@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use base64;
-use tapyrus::hashes::hex::{FromHex, ToHex};
-use tapyrus::{BlockHash, Txid};
 use glob;
 use hex;
 use serde_json::{from_str, from_value, Value};
+use tapyrus::hashes::hex::{FromHex, ToHex};
+use tapyrus::{BlockHash, Txid};
 
 use tapyrus::consensus::encode::{deserialize, serialize};
 

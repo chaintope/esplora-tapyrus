@@ -17,9 +17,9 @@ use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
 use std::thread;
 
 use crate::chain::BlockHeader;
-use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::net::SocketAddr;
+use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 
 pub type Bytes = Vec<u8>;
 pub type HeaderMap = HashMap<Sha256dHash, BlockHeader>;
@@ -135,9 +135,9 @@ pub fn create_socket(addr: &SocketAddr) -> Socket {
 ///
 /// Copied from https://github.com/rust-bitcoin/rust-bitcoincore-rpc/blob/master/json/src/lib.rs
 pub mod serde_hex {
-    use tapyrus::hashes::hex::{FromHex, ToHex};
     use serde::de::Error;
     use serde::{Deserializer, Serializer};
+    use tapyrus::hashes::hex::{FromHex, ToHex};
 
     pub fn serialize<S: Serializer>(b: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&b.to_hex())
@@ -149,9 +149,9 @@ pub mod serde_hex {
     }
 
     pub mod opt {
-        use tapyrus::hashes::hex::{FromHex, ToHex};
         use serde::de::Error;
         use serde::{Deserializer, Serializer};
+        use tapyrus::hashes::hex::{FromHex, ToHex};
 
         pub fn serialize<S: Serializer>(b: &Option<Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
             match *b {

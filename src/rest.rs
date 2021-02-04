@@ -8,13 +8,13 @@ use crate::util::{
     BlockId, FullHash, TransactionStatus,
 };
 
+use hex::{self, FromHexError};
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Response, Server, StatusCode};
 use tapyrus::consensus::encode;
 use tapyrus::hashes::hex::{FromHex, ToHex};
 use tapyrus::hashes::Error as HashError;
 use tapyrus::{BlockHash, Script, Txid};
-use hex::{self, FromHexError};
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Response, Server, StatusCode};
 use tokio::sync::oneshot;
 
 use hyperlocal::UnixServerExt;

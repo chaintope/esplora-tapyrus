@@ -1,7 +1,7 @@
 use crate::chain::Block;
 
-use tapyrus::BlockHash;
 use rayon::prelude::*;
+use tapyrus::BlockHash;
 
 use tapyrus::consensus::encode::{deserialize, Decodable};
 

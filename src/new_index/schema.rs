@@ -1,11 +1,11 @@
-use tapyrus::blockdata::script::Script;
-use tapyrus::hashes::sha256d::Hash as Sha256dHash;
-use tapyrus::util::merkleblock::MerkleBlock;
-use tapyrus::{BlockHash, Txid, VarInt};
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use itertools::Itertools;
 use rayon::prelude::*;
+use tapyrus::blockdata::script::Script;
+use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::util::merkleblock::MerkleBlock;
+use tapyrus::{BlockHash, Txid, VarInt};
 
 use tapyrus::consensus::encode::{deserialize, serialize};
 
@@ -524,13 +524,11 @@ impl ChainQuery {
         // format as Utxo objects
         Ok(newutxos
             .into_iter()
-            .map(|(outpoint, (blockid, value))| {
-                Utxo {
-                    txid: outpoint.txid,
-                    vout: outpoint.vout,
-                    value,
-                    confirmed: Some(blockid),
-                }
+            .map(|(outpoint, (blockid, value))| Utxo {
+                txid: outpoint.txid,
+                vout: outpoint.vout,
+                value,
+                confirmed: Some(blockid),
             })
             .collect())
     }
