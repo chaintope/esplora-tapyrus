@@ -4,6 +4,7 @@ use tapyrus::network::constants::Network as BNetwork;
 use tapyrus::BlockHash;
 
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
 pub type Value = u64;
@@ -20,13 +21,6 @@ pub enum Network {
 }
 
 impl Network {
-    pub fn magic(self) -> u32 {
-        match self {
-            Network::Prod => 0xD9B4_BEF9,
-            Network::Dev => 0x0709_110B,
-        }
-    }
-
     pub fn names() -> Vec<String> {
         return vec!["prod".to_string(), "dev".to_string()];
     }
@@ -57,5 +51,73 @@ impl From<BNetwork> for Network {
             BNetwork::Prod => Network::Prod,
             BNetwork::Dev => Network::Dev,
         }
+    }
+}
+
+/// Network ID is identifier of the Tapyrus network
+#[derive(Clone, Debug, PartialEq)]
+pub struct NetworkId(u32);
+
+impl NetworkId {
+    /// Return the network magic bytes, which should be encoded little-endian
+    /// at the start of every message
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use tapyrus::network::constants::NetworkId;
+    ///
+    /// let network = NetworkId::from(1);
+    /// assert_eq!(network.magic(), 0x00F0FF01);
+    /// ```
+    pub fn magic(self) -> u32 {
+        (33550335 + self.0).swap_bytes()
+    }
+}
+
+impl From<u32> for NetworkId {
+    fn from(n: u32) -> Self {
+        NetworkId(n)
+    }
+}
+
+impl FromStr for NetworkId {
+    type Err = std::num::ParseIntError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(NetworkId::from(s.parse::<u32>()?))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for NetworkId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u32(self.0)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> ::serde::Deserialize<'de> for NetworkId {
+    fn deserialize<D: ::serde::Deserializer<'de>>(d: D) -> Result<NetworkId, D::Error> {
+        struct NetworkIdVisitor;
+
+        impl<'de> ::serde::de::Visitor<'de> for NetworkIdVisitor {
+            type Value = NetworkId;
+
+            fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                formatter.write_str("an integer u32")
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: ::serde::de::Error,
+            {
+                Ok(NetworkId::from(v as u32))
+            }
+        }
+
+        d.deserialize_u32(NetworkIdVisitor)
     }
 }

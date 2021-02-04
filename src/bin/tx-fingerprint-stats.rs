@@ -33,6 +33,7 @@ fn main() {
             config.daemon_rpc_addr,
             config.cookie_getter(),
             config.network_type,
+            config.network_id.clone(),
             signal,
             &metrics,
         )
