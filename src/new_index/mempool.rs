@@ -278,7 +278,7 @@ impl Mempool {
         let mut txids = vec![];
         // Phase 1: add to txstore
         for tx in txs {
-            let txid = tx.txid();
+            let txid = tx.malfix_txid();
             txids.push(txid);
             self.txstore.insert(txid, tx);
         }
