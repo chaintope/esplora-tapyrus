@@ -1,5 +1,5 @@
-extern crate tapyrus;
 extern crate error_chain;
+extern crate tapyrus;
 #[macro_use]
 extern crate log;
 

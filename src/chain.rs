@@ -16,11 +16,10 @@ lazy_static! {
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Serialize, Ord, PartialOrd, Eq)]
 pub enum Network {
     Prod,
-    Dev
+    Dev,
 }
 
 impl Network {
-
     pub fn magic(self) -> u32 {
         match self {
             Network::Prod => 0xD9B4_BEF9,
@@ -29,10 +28,7 @@ impl Network {
     }
 
     pub fn names() -> Vec<String> {
-        return vec![
-            "prod".to_string(),
-            "dev".to_string(),
-        ];
+        return vec!["prod".to_string(), "dev".to_string()];
     }
 }
 

@@ -7,8 +7,6 @@ fn main() {
     use std::collections::HashSet;
     use std::sync::Arc;
 
-    use tapyrus::blockdata::script::Script;
-    use tapyrus::consensus::encode::deserialize;
     use esplora_tapyrus::{
         chain::Transaction,
         config::Config,
@@ -18,6 +16,8 @@ fn main() {
         signal::Waiter,
         util::has_prevout,
     };
+    use tapyrus::blockdata::script::Script;
+    use tapyrus::consensus::encode::deserialize;
 
     let signal = Waiter::start();
     let config = Config::from_args();

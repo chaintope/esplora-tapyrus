@@ -279,7 +279,6 @@ impl Config {
             index_unspendables: m.is_present("index_unspendables"),
             cors: m.value_of("cors").map(|s| s.to_string()),
             precache_scripts: m.value_of("precache_scripts").map(|s| s.to_string()),
-
         };
         eprintln!("{:?}", config);
         config

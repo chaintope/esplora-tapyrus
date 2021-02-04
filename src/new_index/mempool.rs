@@ -1,7 +1,7 @@
 use arraydeque::{ArrayDeque, Wrapping};
+use itertools::Itertools;
 use tapyrus::consensus::encode::deserialize;
 use tapyrus::Txid;
-use itertools::Itertools;
 
 use tapyrus::consensus::encode::serialize;
 
@@ -39,7 +39,6 @@ pub struct Mempool {
     latency: HistogramVec, // mempool requests latency
     delta: HistogramVec,   // # of added/removed txs
     count: GaugeVec,       // current state of the mempool
-
 }
 
 // A simplified transaction view used for the list of most recent transactions
@@ -162,14 +161,12 @@ impl Mempool {
         entries
             .iter()
             .filter_map(|entry| match entry {
-                TxHistoryInfo::Funding(info) => {
-                    Some(Utxo {
-                        txid: deserialize(&info.txid).expect("invalid txid"),
-                        vout: info.vout as u32,
-                        value: info.value,
-                        confirmed: None,
-                    })
-                }
+                TxHistoryInfo::Funding(info) => Some(Utxo {
+                    txid: deserialize(&info.txid).expect("invalid txid"),
+                    vout: info.vout as u32,
+                    value: info.value,
+                    confirmed: None,
+                }),
                 TxHistoryInfo::Spending(_) => None,
             })
             .filter(|utxo| !self.has_spend(&OutPoint::from(utxo)))

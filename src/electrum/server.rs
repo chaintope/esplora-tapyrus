@@ -5,13 +5,13 @@ use std::sync::mpsc::{Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use tapyrus::hashes::sha256d::Hash as Sha256dHash;
-use tapyrus::Txid;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use error_chain::ChainedError;
 use hex;
 use serde_json::{from_str, Value};
+use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::Txid;
 
 use tapyrus::consensus::encode::serialize;
 
@@ -29,7 +29,6 @@ use crate::util::{
 const ELECTRS_VERSION: &str = env!("CARGO_PKG_VERSION");
 const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::new(1, 4);
 const MAX_HEADERS: usize = 2016;
-
 
 // TODO: Sha256dHash should be a generic hash-container (since script hash is single SHA256)
 fn hash_from_value(val: Option<&Value>) -> Result<Sha256dHash> {
@@ -655,13 +654,7 @@ impl RPC {
                     let garbage_sender = garbage_sender.clone();
                     let spawned = spawn_thread("peer", move || {
                         info!("[{}] connected peer", addr);
-                        let conn = Connection::new(
-                            query,
-                            stream,
-                            addr,
-                            stats,
-                            txs_limit,
-                        );
+                        let conn = Connection::new(query, stream, addr, stats, txs_limit);
                         senders.lock().unwrap().push(conn.chan.sender());
                         conn.run();
                         info!("[{}] disconnected peer", addr);

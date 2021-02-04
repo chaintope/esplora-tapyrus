@@ -13,7 +13,6 @@ use crate::util::{is_spendable, BlockId, Bytes, TransactionStatus};
 
 use tapyrus::Txid;
 
-
 const FEE_ESTIMATES_TTL: u64 = 60; // seconds
 
 const CONF_TARGETS: [u16; 28] = [
