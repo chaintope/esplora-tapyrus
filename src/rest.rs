@@ -928,7 +928,6 @@ fn to_scripthash(
     }
 }
 
-#[allow(unused_variables)] // `network` is unused in liquid mode
 fn address_to_scripthash(addr: &str, network: Network) -> Result<FullHash, HttpError> {
     let addr = address::Address::from_str(addr)?;
 
