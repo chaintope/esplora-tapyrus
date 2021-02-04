@@ -115,7 +115,7 @@ impl TransactionValue {
         let fee = get_tx_fee(&tx, &prevouts, config.network_type);
 
         TransactionValue {
-            txid: tx.txid(),
+            txid: tx.malfix_txid(),
             version: tx.version,
             locktime: tx.lock_time,
             vin: vins,

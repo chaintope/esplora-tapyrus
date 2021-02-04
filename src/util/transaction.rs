@@ -42,11 +42,11 @@ pub struct TxInput {
 }
 
 pub fn is_coinbase(txin: &TxIn) -> bool {
-    return txin.previous_output.is_null();
+    return txin.previous_output.txid == Default::default();
 }
 
 pub fn has_prevout(txin: &TxIn) -> bool {
-    return !txin.previous_output.is_null();
+    return !is_coinbase(txin);
 }
 
 pub fn is_spendable(txout: &TxOut) -> bool {
