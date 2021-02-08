@@ -1,4 +1,4 @@
-use crate::chain::{address, Network, OutPoint, Transaction, TxIn, TxOut};
+use crate::chain::{address, Network, NetworkType, OutPoint, Transaction, TxIn, TxOut};
 use crate::config::Config;
 use crate::errors;
 use crate::new_index::{compute_script_hash, Query, SpendingInput, Utxo};
@@ -112,7 +112,7 @@ impl TransactionValue {
             .map(|txout| TxOutValue::new(txout, config))
             .collect();
 
-        let fee = get_tx_fee(&tx, &prevouts, config.network_type);
+        let fee = get_tx_fee(&tx, &prevouts, config.network);
 
         TransactionValue {
             txid: tx.malfix_txid(),
@@ -202,7 +202,7 @@ impl TxOutValue {
 
         let script = &txout.script_pubkey;
         let script_asm = get_script_asm(&script);
-        let script_addr = script_to_address(&script, config.network_type);
+        let script_addr = script_to_address(&script, config.network);
 
         // TODO should the following something to put inside rust-elements lib?
         let script_type = if is_fee {
@@ -480,7 +480,7 @@ fn handle_request(
                 .chain()
                 .get_block_with_meta(&hash)
                 .ok_or_else(|| HttpError::not_found("Block not found".to_string()))?;
-            let block_value = BlockValue::new(blockhm, config.network_type);
+            let block_value = BlockValue::new(blockhm, config.network);
             json_response(block_value, TTL_LONG)
         }
         (&Method::GET, Some(&"block"), Some(hash), Some(&"status"), None, None) => {
@@ -575,7 +575,7 @@ fn handle_request(
         }
         (&Method::GET, Some(script_type @ &"address"), Some(script_str), None, None, None)
         | (&Method::GET, Some(script_type @ &"scripthash"), Some(script_str), None, None, None) => {
-            let script_hash = to_scripthash(script_type, script_str, config.network_type)?;
+            let script_hash = to_scripthash(script_type, script_str, config.network)?;
             let stats = query.stats(&script_hash[..]);
             json_response(
                 json!({
@@ -602,7 +602,7 @@ fn handle_request(
             None,
             None,
         ) => {
-            let script_hash = to_scripthash(script_type, script_str, config.network_type)?;
+            let script_hash = to_scripthash(script_type, script_str, config.network)?;
 
             let mut txs = vec![];
 
@@ -641,7 +641,7 @@ fn handle_request(
             Some(&"chain"),
             last_seen_txid,
         ) => {
-            let script_hash = to_scripthash(script_type, script_str, config.network_type)?;
+            let script_hash = to_scripthash(script_type, script_str, config.network)?;
             let last_seen_txid = last_seen_txid.and_then(|txid| Txid::from_hex(txid).ok());
 
             let txs = query
@@ -673,7 +673,7 @@ fn handle_request(
             Some(&"mempool"),
             None,
         ) => {
-            let script_hash = to_scripthash(script_type, script_str, config.network_type)?;
+            let script_hash = to_scripthash(script_type, script_str, config.network)?;
 
             let txs = query
                 .mempool()
@@ -701,7 +701,7 @@ fn handle_request(
             None,
             None,
         ) => {
-            let script_hash = to_scripthash(script_type, script_str, config.network_type)?;
+            let script_hash = to_scripthash(script_type, script_str, config.network)?;
             let utxos: Vec<UtxoValue> = query
                 .utxo(&script_hash[..])?
                 .into_iter()
@@ -905,7 +905,7 @@ fn blocks(
         current_hash = blockhm.header_entry.header().prev_blockhash;
 
         #[allow(unused_mut)]
-        let mut value = BlockValue::new(blockhm, config.network_type);
+        let mut value = BlockValue::new(blockhm, config.network);
 
         values.push(value);
 
@@ -931,7 +931,7 @@ fn to_scripthash(
 fn address_to_scripthash(addr: &str, network: Network) -> Result<FullHash, HttpError> {
     let addr = address::Address::from_str(addr)?;
 
-    let is_expected_net = Network::from(addr.network) == network;
+    let is_expected_net = NetworkType::from(addr.network) == network.network_type;
 
     if !is_expected_net {
         bail!(HttpError::from("Address on invalid network".to_string()))

@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use stderrlog;
 
-use crate::chain::{Network, NetworkId};
+use crate::chain::{Network, NetworkType};
 use crate::daemon::CookieGetter;
 
 use crate::errors::*;
@@ -19,8 +19,7 @@ const ELECTRS_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct Config {
     // See below for the documentation of each field:
     pub log: stderrlog::StdErrLog,
-    pub network_type: Network,
-    pub network_id: NetworkId,
+    pub network: Network,
     pub db_path: PathBuf,
     pub daemon_dir: PathBuf,
     pub blocks_dir: PathBuf,
@@ -54,7 +53,7 @@ impl Config {
     pub fn from_args() -> Config {
         let network_help = format!(
             "Select Bitcoin network type ({})",
-            Network::names().join(", ")
+            NetworkType::names().join(", ")
         );
 
         let args = App::new("Electrum Rust Server")
@@ -191,27 +190,27 @@ impl Config {
         let m = args.get_matches();
 
         let network_name = m.value_of("network").unwrap_or("mainnet");
-        let network_type = Network::from(network_name);
-        let network_id = NetworkId::from_str(m.value_of("network_id").unwrap_or("1"))
+        let network_id = u32::from_str(m.value_of("network_id").unwrap_or("1"))
             .expect("failed to get network id");
+        let network = Network::new(network_name, network_id);
         let db_dir = Path::new(m.value_of("db_dir").unwrap_or("./db"));
         let db_path = db_dir.join(network_name);
 
-        let default_daemon_port = match network_type {
-            Network::Prod => 8332,
-            Network::Dev => 18332,
+        let default_daemon_port = match network.network_type {
+            NetworkType::Prod => 8332,
+            NetworkType::Dev => 18332,
         };
-        let default_electrum_port = match network_type {
-            Network::Prod => 50001,
-            Network::Dev => 60001,
+        let default_electrum_port = match network.network_type {
+            NetworkType::Prod => 50001,
+            NetworkType::Dev => 60001,
         };
-        let default_http_port = match network_type {
-            Network::Prod => 3000,
-            Network::Dev => 3001,
+        let default_http_port = match network.network_type {
+            NetworkType::Prod => 3000,
+            NetworkType::Dev => 3001,
         };
-        let default_monitoring_port = match network_type {
-            Network::Prod => 4224,
-            Network::Dev => 14224,
+        let default_monitoring_port = match network.network_type {
+            NetworkType::Prod => 4224,
+            NetworkType::Dev => 14224,
         };
 
         let daemon_rpc_addr: SocketAddr = str_to_socketaddr(
@@ -245,10 +244,6 @@ impl Config {
                 default_dir.push(".bitcoin");
                 default_dir
             });
-        match network_type {
-            Network::Prod => (),
-            Network::Dev => (),
-        }
         let blocks_dir = m
             .value_of("blocks_dir")
             .map(PathBuf::from)
@@ -270,8 +265,7 @@ impl Config {
         log.init().expect("logging initialization failed");
         let config = Config {
             log,
-            network_type,
-            network_id,
+            network,
             db_path,
             daemon_dir,
             blocks_dir,
