@@ -158,7 +158,7 @@ impl From<&Config> for IndexerConfig {
             light_mode: config.light_mode,
             address_search: config.address_search,
             index_unspendables: config.index_unspendables,
-            network: config.network_type,
+            network: config.network,
         }
     }
 }
@@ -319,7 +319,7 @@ impl ChainQuery {
             store,
             daemon,
             light_mode: config.light_mode,
-            network: config.network_type,
+            network: config.network,
             duration: metrics.histogram_vec(
                 HistogramOpts::new("query_duration", "Index query duration (in seconds)"),
                 &["name"],

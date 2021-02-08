@@ -80,7 +80,7 @@ impl Mempool {
     }
 
     pub fn network(&self) -> Network {
-        self.config.network_type
+        self.config.network
     }
 
     pub fn lookup_txn(&self, txid: &Txid) -> Option<Transaction> {
@@ -297,7 +297,7 @@ impl Mempool {
             let prevouts = extract_tx_prevouts(&tx, &txos, false);
 
             // Get feeinfo for caching and recent tx overview
-            let feeinfo = TxFeeInfo::new(&tx, &prevouts, self.config.network_type);
+            let feeinfo = TxFeeInfo::new(&tx, &prevouts, self.config.network);
 
             // recent is an ArrayDeque that automatically evicts the oldest elements
             self.recent.push_front(TxOverview {

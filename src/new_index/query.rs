@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
 
-use crate::chain::{Network, OutPoint, Transaction, TxOut};
+use crate::chain::{Network, NetworkType, OutPoint, Transaction, TxOut};
 use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
@@ -55,7 +55,7 @@ impl Query {
     }
 
     pub fn network(&self) -> Network {
-        self.config.network_type
+        self.config.network
     }
 
     pub fn mempool(&self) -> RwLockReadGuard<Mempool> {
@@ -156,7 +156,7 @@ impl Query {
     }
 
     pub fn estimate_fee(&self, conf_target: u16) -> Option<f64> {
-        if self.config.network_type == Network::Dev {
+        if self.config.network.network_type == NetworkType::Dev {
             return self.get_relayfee().ok();
         }
         if let (ref cache, Some(cache_time)) = *self.cached_estimates.read().unwrap() {
