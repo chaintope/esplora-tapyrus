@@ -1,18 +1,16 @@
-use crate::new_index::{ChainQuery, FundingInfo, Query, Utxo};
+use crate::new_index::FundingInfo;
 use openassets_tapyrus::openassets::asset_id::AssetId;
-use openassets_tapyrus::openassets::marker_output::{Metadata, TxOutExt};
+use openassets_tapyrus::openassets::marker_output::Metadata;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use std::str::FromStr;
 use tapyrus::blockdata::transaction::{Transaction, TxOut};
-use tapyrus::hash_types::Txid;
 use tapyrus::network::constants::Network;
 
 use serde::de::Deserialize;
 use serde::de::Deserializer;
 use serde::de::MapAccess;
 use serde::de::Visitor;
-use std::fmt::Formatter;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct OpenAsset {
@@ -298,12 +296,8 @@ mod tests {
     use super::*;
 
     use hex;
-    use openassets_tapyrus::openassets::asset_id::AssetId;
-    use std::str::FromStr;
     use tapyrus::blockdata::script::Builder;
-    use tapyrus::blockdata::script::Script;
     use tapyrus::blockdata::transaction::{Transaction, TxOut};
-    use tapyrus::hash_types::Txid;
     use tapyrus::network::constants::Network;
 
     use crate::open_assets::test_helper::*;
