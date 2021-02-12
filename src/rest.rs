@@ -57,7 +57,7 @@ struct BlockValue {
 }
 
 impl BlockValue {
-    fn new(blockhm: BlockHeaderMeta, network: Network) -> Self {
+    fn new(blockhm: BlockHeaderMeta, _network: Network) -> Self {
         let header = blockhm.header_entry.header();
         BlockValue {
             id: header.block_hash().to_hex(),

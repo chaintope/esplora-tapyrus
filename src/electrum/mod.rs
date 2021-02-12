@@ -7,8 +7,6 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 
-use tapyrus::BlockHash;
-
 use crate::errors::ResultExt;
 use crate::util::BlockId;
 

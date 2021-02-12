@@ -5,7 +5,6 @@ use tapyrus::network::constants::NetworkId;
 use tapyrus::BlockHash;
 
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
 pub type Value = u64;

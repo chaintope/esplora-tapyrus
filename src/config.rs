@@ -241,7 +241,7 @@ impl Config {
             "Prometheus monitoring",
         );
 
-        let mut daemon_dir = m
+        let daemon_dir = m
             .value_of("daemon_dir")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
