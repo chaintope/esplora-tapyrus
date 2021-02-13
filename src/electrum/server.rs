@@ -11,10 +11,10 @@ use error_chain::ChainedError;
 use hex;
 use serde_json::{from_str, Value};
 use tapyrus::blockdata::transaction::OutPoint;
+use tapyrus::blockdata::script::ColorIdentifier;
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use tapyrus::Txid;
-
-use tapyrus::consensus::encode::serialize;
+use tapyrus::consensus::encode::{deserialize, serialize};
 
 use crate::config::Config;
 use crate::electrum::{get_electrum_height, ProtocolVersion};
@@ -65,6 +65,21 @@ fn bool_from_value_or(val: Option<&Value>, name: &str, default: bool) -> Result<
         return Ok(default);
     }
     bool_from_value(val, name)
+}
+
+
+fn color_id_from_value(val: Option<&Value>, name: &str) -> Result<Option<ColorIdentifier>> {
+    if let Some(val) = val {
+        let val = val
+            .as_str()
+            .chain_err(|| format!("not a string {}", name))?;
+        let val = hex::decode(val).chain_err(|| format!("invalie hex format: {}", name))?;
+        let color_id: ColorIdentifier =
+            deserialize(&val[0..33]).chain_err(|| format!("decode failed: {}", name))?;
+        Ok(Some(color_id))
+    } else {
+        Ok(None)
+    }
 }
 
 // TODO: implement caching and delta updates
@@ -224,8 +239,8 @@ impl Connection {
     }
 
     fn utxo_to_json(&self, utxo: &Utxo, asset: Option<&OpenAsset>) -> Value {
-        match asset {
-            Some(asset) => json!({
+        if let Some(asset) = asset {
+            json!({
                 "height": utxo.confirmed.clone().map_or(0, |b| b.height),
                 "tx_pos": utxo.vout,
                 "tx_hash": utxo.txid,
@@ -234,13 +249,22 @@ impl Connection {
                     "asset_id": asset.asset_id.to_string(),
                     "asset_quantity": asset.asset_quantity
                 }
-            }),
-            None => json!({
+            })
+        } else if let Some(color_id) = utxo.color_id.clone() {
+            json!({
+                "height": utxo.confirmed.clone().map_or(0, |b| b.height),
+                "tx_pos": utxo.vout,
+                "tx_hash": utxo.txid,
+                "color_id": utxo.color_id,
+                "value": utxo.value,
+            })
+        } else {
+            json!({
                 "height": utxo.confirmed.clone().map_or(0, |b| b.height),
                 "tx_pos": utxo.vout,
                 "tx_hash": utxo.txid,
                 "value": utxo.value,
-            }),
+            })
         }
     }
 
@@ -361,6 +385,32 @@ impl Connection {
         Ok(json!(Value::Array(
             utxos
                 .into_iter()
+                .map(|utxo| self.utxo_to_json(&utxo, None))
+                .collect()
+        )))
+    }
+
+    fn blockchain_scripthash_listcoloredunspent(&self, params: &[Value]) -> Result<Value> {
+        let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
+        let color_id =
+            color_id_from_value(params.get(1), "color_id").chain_err(|| "bad color_id")?;
+        let utxos = self.query.utxo(&script_hash[..])?;
+        Ok(json!(Value::Array(
+            utxos
+                .into_iter()
+                .filter(|o| o.color_id.is_some() && (color_id.is_none() || color_id == o.color_id))
+                .map(|utxo| self.utxo_to_json(&utxo, None))
+                .collect()
+        )))
+    }
+
+    fn blockchain_scripthash_listuncoloredunspent(&self, params: &[Value]) -> Result<Value> {
+        let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
+        let utxos = self.query.utxo(&script_hash[..])?;
+        Ok(json!(Value::Array(
+            utxos
+                .into_iter()
+                .filter(|o| o.color_id.is_none())
                 .map(|utxo| self.utxo_to_json(&utxo, None))
                 .collect()
         )))
