@@ -18,6 +18,7 @@ use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics}
 use crate::new_index::{
     compute_script_hash, schema::FullHash, ChainQuery, FundingInfo, ScriptStats, SpendingInfo,
     SpendingInput, TxHistoryInfo, Utxo,
+    schema::split_colored_script,
 };
 use crate::util::fees::{make_fee_histogram, TxFeeInfo};
 use crate::util::{extract_tx_prevouts, full_hash, has_prevout, is_spendable, Bytes};
@@ -164,6 +165,7 @@ impl Mempool {
                 TxHistoryInfo::Funding(info) => Some(Utxo {
                     txid: deserialize(&info.txid).expect("invalid txid"),
                     vout: info.vout as u32,
+                    color_id: info.color_id.clone(),
                     value: info.value,
                     confirmed: None,
                 }),
@@ -333,11 +335,18 @@ impl Mempool {
                 .enumerate()
                 .filter(|(_, txo)| is_spendable(txo) || config.index_unspendables)
                 .map(|(index, txo)| {
+                    let color_id = if let Some((color_id, _script)) = split_colored_script(&txo.script_pubkey) {
+                        Some(color_id)
+                    } else {
+                        None
+                    };
+
                     (
                         compute_script_hash(&txo.script_pubkey),
                         TxHistoryInfo::Funding(FundingInfo {
                             txid: txid_bytes,
                             vout: index as u16,
+                            color_id: color_id,
                             value: txo.value,
                             open_asset: None,
                         }),

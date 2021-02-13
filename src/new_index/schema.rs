@@ -7,9 +7,11 @@ use tapyrus::blockdata::script::Script;
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use tapyrus::util::merkleblock::MerkleBlock;
 use tapyrus::{BlockHash, Txid, VarInt};
+use tapyrus::blockdata::script::ColorIdentifier;
 
 use tapyrus::consensus::encode::{deserialize, serialize};
 
+use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -92,13 +94,14 @@ impl Store {
     }
 }
 
-type UtxoMap = HashMap<OutPoint, (BlockId, Value)>;
+type UtxoMap = HashMap<OutPoint, (BlockId, Option<ColorIdentifier>, Value)>;
 
 #[derive(Debug)]
 pub struct Utxo {
     pub txid: Txid,
     pub vout: u32,
     pub confirmed: Option<BlockId>,
+    pub color_id: Option<ColorIdentifier>,
     pub value: Value,
 }
 
@@ -526,9 +529,10 @@ impl ChainQuery {
         // format as Utxo objects
         Ok(newutxos
             .into_iter()
-            .map(|(outpoint, (blockid, value))| Utxo {
+            .map(|(outpoint, (blockid, color_id, value))| Utxo {
                 txid: outpoint.txid,
                 vout: outpoint.vout,
+                color_id,
                 value,
                 confirmed: Some(blockid),
             })
@@ -561,7 +565,7 @@ impl ChainQuery {
 
             match history.key.txinfo {
                 TxHistoryInfo::Funding(ref info) => {
-                    utxos.insert(history.get_funded_outpoint(), (blockid, info.value))
+                    utxos.insert(history.get_funded_outpoint(), (blockid, info.color_id.clone(), info.value))
                 }
                 TxHistoryInfo::Spending(_) => utxos.remove(&history.get_funded_outpoint()),
             };
@@ -994,6 +998,15 @@ fn index_blocks(
         .collect()
 }
 
+pub fn split_colored_script(script: &Script) -> Option<(ColorIdentifier, Script)> {
+    if script.is_colored() {
+        let color_id = deserialize(&script[1..34]).expect("unexpect color_id");
+        Some((color_id, Script::from(Vec::from(&script[35..]))))
+    } else {
+        None
+    }
+}
+
 // TODO: return an iterator?
 fn index_transaction(
     tx: &Transaction,
@@ -1010,17 +1023,33 @@ fn index_transaction(
     let txid = full_hash(&tx.malfix_txid()[..]);
     for (txo_index, txo) in tx.output.iter().enumerate() {
         if is_spendable(txo) || iconfig.index_unspendables {
-            let history = TxHistoryRow::new(
-                &txo.script_pubkey,
-                confirmed_height,
-                TxHistoryInfo::Funding(FundingInfo {
-                    txid,
-                    vout: txo_index as u16,
-                    value: txo.value,
-                    open_asset: None,
-                }),
-            );
-            rows.push(history.into_row());
+            if let Some((color_id, _script)) = split_colored_script(&txo.script_pubkey) {
+                let history = TxHistoryRow::new(
+                    &txo.script_pubkey,
+                    confirmed_height,
+                    TxHistoryInfo::Funding(FundingInfo {
+                        txid,
+                        vout: txo_index as u16,
+                        color_id: Some(color_id),
+                        value: txo.value,
+                        open_asset: None,
+                    }),
+                );
+                rows.push(history.into_row());
+            } else {
+                let history = TxHistoryRow::new(
+                    &txo.script_pubkey,
+                    confirmed_height,
+                    TxHistoryInfo::Funding(FundingInfo {
+                        txid,
+                        vout: txo_index as u16,
+                        color_id: None,
+                        value: txo.value,
+                        open_asset: None,
+                    }),
+                );
+                rows.push(history.into_row());
+            }
 
             if iconfig.address_search {
                 if let Some(row) = addr_search_row(&txo.script_pubkey, iconfig.network) {
@@ -1278,10 +1307,15 @@ impl BlockRow {
 pub struct FundingInfo {
     pub txid: FullHash,
     pub vout: u16,
+
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub color_id: Option<ColorIdentifier>,
+
     pub value: Value,
     #[serde(skip)]
     pub open_asset: Option<OpenAsset>,
 }
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpendingInfo {
@@ -1305,6 +1339,19 @@ impl TxHistoryInfo {
             | TxHistoryInfo::Spending(SpendingInfo { txid, .. }) => deserialize(txid),
         }
         .expect("cannot parse Txid")
+    }
+
+    pub fn get_funded_outpoint(&self) -> OutPoint {
+        match self {
+            TxHistoryInfo::Funding(ref info) => OutPoint {
+                txid: deserialize(&info.txid).unwrap(),
+                vout: info.vout as u32,
+            },
+            TxHistoryInfo::Spending(ref info) => OutPoint {
+                txid: deserialize(&info.prev_txid).unwrap(),
+                vout: info.prev_vout as u32,
+            },
+        }
     }
 }
 
@@ -1367,6 +1414,7 @@ impl TxHistoryRow {
     pub fn get_txid(&self) -> Txid {
         self.key.txinfo.get_txid()
     }
+
     fn get_funded_outpoint(&self) -> OutPoint {
         self.key.txinfo.get_funded_outpoint()
     }
@@ -1375,18 +1423,7 @@ impl TxHistoryRow {
 impl TxHistoryInfo {
     // for funding rows, returns the funded output.
     // for spending rows, returns the spent previous output.
-    pub fn get_funded_outpoint(&self) -> OutPoint {
-        match self {
-            TxHistoryInfo::Funding(ref info) => OutPoint {
-                txid: deserialize(&info.txid).unwrap(),
-                vout: info.vout as u32,
-            },
-            TxHistoryInfo::Spending(ref info) => OutPoint {
-                txid: deserialize(&info.prev_txid).unwrap(),
-                vout: info.prev_vout as u32,
-            },
-        }
-    }
+     
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1472,7 +1509,7 @@ impl StatsCacheRow {
     }
 }
 
-type CachedUtxoMap = HashMap<(Txid, u32), (u32, Value)>; // (txid,vout) => (block_height,output_value)
+type CachedUtxoMap = HashMap<(Txid, u32), (u32, Option<ColorIdentifier>, Value)>; // (txid,vout) => (block_height, color_id, output_value)
 
 struct UtxoCacheRow {
     key: ScriptCacheKey,
@@ -1509,10 +1546,10 @@ impl UtxoCacheRow {
 fn make_utxo_cache(utxos: &UtxoMap) -> CachedUtxoMap {
     utxos
         .iter()
-        .map(|(outpoint, (blockid, value))| {
+        .map(|(outpoint, (blockid, color_id, value))| {
             (
                 (outpoint.txid, outpoint.vout),
-                (blockid.height as u32, *value),
+                (blockid.height as u32, color_id.clone(), *value),
             )
         })
         .collect()
@@ -1521,12 +1558,12 @@ fn make_utxo_cache(utxos: &UtxoMap) -> CachedUtxoMap {
 fn from_utxo_cache(utxos_cache: CachedUtxoMap, chain: &ChainQuery) -> UtxoMap {
     utxos_cache
         .into_iter()
-        .map(|((txid, vout), (height, value))| {
+        .map(|((txid, vout), (height, color_id, value))| {
             let outpoint = OutPoint { txid, vout };
             let blockid = chain
                 .blockid_by_height(height as usize)
                 .expect("missing blockheader for valid utxo cache entry");
-            (outpoint, (blockid, value))
+            (outpoint, (blockid, color_id.clone(), value))
         })
         .collect()
 }

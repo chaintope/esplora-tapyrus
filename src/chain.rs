@@ -1,4 +1,4 @@
-pub use tapyrus::{util::address, Block, BlockHeader, OutPoint, Transaction, TxIn, TxOut};
+pub use tapyrus::{util::address, Block, BlockHeader, OutPoint, Script, Transaction, TxIn, TxOut};
 
 use tapyrus::network::constants::Network as BNetwork;
 use tapyrus::network::constants::NetworkId;
