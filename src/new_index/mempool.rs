@@ -16,9 +16,8 @@ use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics};
 use crate::new_index::{
-    compute_script_hash, schema::FullHash, ChainQuery, FundingInfo, ScriptStats, SpendingInfo,
-    SpendingInput, TxHistoryInfo, Utxo,
-    schema::split_colored_script,
+    compute_script_hash, schema::split_colored_script, schema::FullHash, ChainQuery, FundingInfo,
+    ScriptStats, SpendingInfo, SpendingInput, TxHistoryInfo, Utxo,
 };
 use crate::util::fees::{make_fee_histogram, TxFeeInfo};
 use crate::util::{extract_tx_prevouts, full_hash, has_prevout, is_spendable, Bytes};
@@ -335,23 +334,43 @@ impl Mempool {
                 .enumerate()
                 .filter(|(_, txo)| is_spendable(txo) || config.index_unspendables)
                 .map(|(index, txo)| {
-                    let color_id = if let Some((color_id, _script)) = split_colored_script(&txo.script_pubkey) {
-                        Some(color_id)
+                    if let Some((color_id, script)) = split_colored_script(&txo.script_pubkey) {
+                        vec![
+                            (
+                                compute_script_hash(&txo.script_pubkey),
+                                TxHistoryInfo::Funding(FundingInfo {
+                                    txid: txid_bytes,
+                                    vout: index as u16,
+                                    color_id: Some(color_id.clone()),
+                                    value: txo.value,
+                                    open_asset: None,
+                                }),
+                            ),
+                            (
+                                compute_script_hash(&script),
+                                TxHistoryInfo::Funding(FundingInfo {
+                                    txid: txid_bytes,
+                                    vout: index as u16,
+                                    color_id: Some(color_id.clone()),
+                                    value: txo.value,
+                                    open_asset: None,
+                                }),
+                            ),
+                        ]
                     } else {
-                        None
-                    };
-
-                    (
-                        compute_script_hash(&txo.script_pubkey),
-                        TxHistoryInfo::Funding(FundingInfo {
-                            txid: txid_bytes,
-                            vout: index as u16,
-                            color_id: color_id,
-                            value: txo.value,
-                            open_asset: None,
-                        }),
-                    )
-                });
+                        vec![(
+                            compute_script_hash(&txo.script_pubkey),
+                            TxHistoryInfo::Funding(FundingInfo {
+                                txid: txid_bytes,
+                                vout: index as u16,
+                                color_id: None,
+                                value: txo.value,
+                                open_asset: None,
+                            }),
+                        )]
+                    }
+                })
+                .flatten();
 
             // Index funding/spending history entries and spend edges
             for (scripthash, entry) in funding.chain(spending) {
