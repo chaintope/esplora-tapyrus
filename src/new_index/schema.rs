@@ -3,11 +3,11 @@ use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use itertools::Itertools;
 use rayon::prelude::*;
+use tapyrus::blockdata::script::ColorIdentifier;
 use tapyrus::blockdata::script::Script;
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use tapyrus::util::merkleblock::MerkleBlock;
 use tapyrus::{BlockHash, Txid, VarInt};
-use tapyrus::blockdata::script::ColorIdentifier;
 
 use tapyrus::consensus::encode::{deserialize, serialize};
 
@@ -564,9 +564,10 @@ impl ChainQuery {
             lastblock = Some(blockid.hash);
 
             match history.key.txinfo {
-                TxHistoryInfo::Funding(ref info) => {
-                    utxos.insert(history.get_funded_outpoint(), (blockid, info.color_id.clone(), info.value))
-                }
+                TxHistoryInfo::Funding(ref info) => utxos.insert(
+                    history.get_funded_outpoint(),
+                    (blockid, info.color_id.clone(), info.value),
+                ),
                 TxHistoryInfo::Spending(_) => utxos.remove(&history.get_funded_outpoint()),
             };
 
@@ -1023,14 +1024,26 @@ fn index_transaction(
     let txid = full_hash(&tx.malfix_txid()[..]);
     for (txo_index, txo) in tx.output.iter().enumerate() {
         if is_spendable(txo) || iconfig.index_unspendables {
-            if let Some((color_id, _script)) = split_colored_script(&txo.script_pubkey) {
+            if let Some((color_id, script)) = split_colored_script(&txo.script_pubkey) {
                 let history = TxHistoryRow::new(
                     &txo.script_pubkey,
                     confirmed_height,
                     TxHistoryInfo::Funding(FundingInfo {
                         txid,
                         vout: txo_index as u16,
-                        color_id: Some(color_id),
+                        color_id: Some(color_id.clone()),
+                        value: txo.value,
+                        open_asset: None,
+                    }),
+                );
+                rows.push(history.into_row());
+                let history = TxHistoryRow::new(
+                    &script,
+                    confirmed_height,
+                    TxHistoryInfo::Funding(FundingInfo {
+                        txid,
+                        vout: txo_index as u16,
+                        color_id: Some(color_id.clone()),
                         value: txo.value,
                         open_asset: None,
                     }),
@@ -1307,15 +1320,11 @@ impl BlockRow {
 pub struct FundingInfo {
     pub txid: FullHash,
     pub vout: u16,
-
-    #[serde(skip_serializing_if="Option::is_none")]
     pub color_id: Option<ColorIdentifier>,
-
     pub value: Value,
     #[serde(skip)]
     pub open_asset: Option<OpenAsset>,
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SpendingInfo {
@@ -1423,7 +1432,6 @@ impl TxHistoryRow {
 impl TxHistoryInfo {
     // for funding rows, returns the funded output.
     // for spending rows, returns the spent previous output.
-     
 }
 
 #[derive(Serialize, Deserialize)]
