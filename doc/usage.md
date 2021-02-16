@@ -18,7 +18,7 @@ $ sudo apt install clang cmake  # for building 'rust-rocksdb'
 First build should take ~20 minutes:
 ```bash
 $ git clone https://github.com/chaintope/esplora-tapyrus
-$ cd electrs-tapyrus
+$ cd esplora-tapyrus
 $ cargo build --release
 ```
 
@@ -42,11 +42,11 @@ This applies only if you do **not** use some other automated systems such as Deb
 
 ### Tapyrusd configuration
 
-Pruning must be turned **off** for `electrs-tapyrus` to work. `txindex` is allowed but unnecessary for `electrs-tapyrus`. However, you might still need it if you run other services (e.g.`eclair`)
+Pruning must be turned **off** for `esplora-tapyrus` to work. `txindex` is allowed but unnecessary for `esplora-tapyrus`. However, you might still need it if you run other services (e.g.`eclair`)
 
-The highly recommended way of authenticating `electrs-tapyrus` is using cookie file. It's the most secure and robust method. Set `rpccookiefile` option of `tapyrusd` to a file within an existing directory which it can access. You can skip it if you're running both daemons under the same user and with the default directories.
+The highly recommended way of authenticating `esplora-tapyrus` is using cookie file. It's the most secure and robust method. Set `rpccookiefile` option of `tapyrusd` to a file within an existing directory which it can access. You can skip it if you're running both daemons under the same user and with the default directories.
 
-`electrs-tapyrus` will wait for `tapyrusd` to sync, however, you will be unabe to use it until the syncing is done.
+`esplora-tapyrus` will wait for `tapyrusd` to sync, however, you will be unabe to use it until the syncing is done.
 
 Example command for running `tapyrusd` (assuming same user, default dirs):
 
@@ -54,9 +54,9 @@ Example command for running `tapyrusd` (assuming same user, default dirs):
 $ tapyrusd -server=1 -txindex=0 -prune=0
 ```
 
-### ElectrsTapyrus configuration
+### Esplora Tapyrus configuration
 
-ElectrsTapyrus can be configured using command line, environment variables and configuration files (or their combination). It is highly recommended to use configuration files for any non-trivial setups since it's easier to manage. If you're setting password manually instead of cookie files, configuration file is the only way to set it due to security reasons.
+Esplora Tapyrus can be configured using command line, environment variables and configuration files (or their combination). It is highly recommended to use configuration files for any non-trivial setups since it's easier to manage. If you're setting password manually instead of cookie files, configuration file is the only way to set it due to security reasons.
 
 ### Configuration files and priorities
 
@@ -68,11 +68,11 @@ For each command line argument an environment variable of the same name with `EL
 
 Finally, you need to use a number in config file if you want to increase verbosity (e.g. `verbose = 3` is equivalent to `-vvv`) and `true` value in case of flags (e.g. `timestamp = true`)
 
-If you are using `-rpcuser=USER` and `-rpcpassword=PASSWORD` of `tapyrusd` for authentication, please use `cookie="USER:PASSWORD"` option in one of the [config files](https://github.com/chaintope/electrs-tapyrus/blob/master/doc/usage.md#configuration-files-and-priorities).
+If you are using `-rpcuser=USER` and `-rpcpassword=PASSWORD` of `tapyrusd` for authentication, please use `cookie="USER:PASSWORD"` option in one of the [config files](https://github.com/chaintope/esplora-tapyrus/blob/master/doc/usage.md#configuration-files-and-priorities).
 Otherwise, [`~/.tapyrus/.cookie`](https://github.com/chaintope/tapyrus-core/blob/848a9dab4e9e70d99d35feb7fbf833947b71df9c/share/examples/bitcoin.conf#L70-L72) will be used as the default cookie file, allowing this server to use tapyrusd JSONRPC interface.
 
 
-### Electrs usage
+### Esplora usage
 
 First index sync should take ~1.5 hours (on a dual core Intel CPU @ 3.3 GHz, 8 GB RAM, 1TB WD Blue HDD):
 ```bash
@@ -108,7 +108,7 @@ $ du db/
 38G db/prod/
 ```
 
-See below for [extra configuration suggestions](https://github.com/chaintope/electrs-tapyrus/blob/master/doc/usage.md#extra-configuration-suggestions) that you might want to consider.
+See below for [extra configuration suggestions](https://github.com/chaintope/esplora-tapyrus/blob/master/doc/usage.md#extra-configuration-suggestions) that you might want to consider.
 
 ## Extra configuration suggestions
 

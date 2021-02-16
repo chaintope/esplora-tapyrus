@@ -1,8 +1,8 @@
-# Electrum Protocol for Electrs-Tapyrus
+# Electrum Protocol for Esplora-Tapyrus
 
-This document describes available APIs in electrs-tapyrus
+This document describes available APIs in esplora-tapyrus
 
-electrs-tapyrus is based on electrs which supports Electrum Protocol, so almost all APIs are available as is.
+esplora-tapyrus is based on electrs which supports Electrum Protocol, so almost all APIs are available as is.
 
 In this document, we detail about the APIs which have differences from original APIs.
 
