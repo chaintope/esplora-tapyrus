@@ -5,7 +5,7 @@ It allows issuance and transfer of user-created assets.
 
 The Open Assets Protocol is designed for Bitcoin blockchain, but it is possible to adapt to Tapyrus blockchain.
 
-To support it in electrs-tapyrus, some API should be added.
+To support it in esplora-tapyrus, some API should be added.
 
 ## blockchain.openassets.scripthash.listunspent
 
