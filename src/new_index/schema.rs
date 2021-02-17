@@ -1429,11 +1429,6 @@ impl TxHistoryRow {
     }
 }
 
-impl TxHistoryInfo {
-    // for funding rows, returns the funded output.
-    // for spending rows, returns the spent previous output.
-}
-
 #[derive(Serialize, Deserialize)]
 struct TxEdgeKey {
     code: u8,
