@@ -999,15 +999,6 @@ fn index_blocks(
         .collect()
 }
 
-pub fn split_colored_script(script: &Script) -> Option<(ColorIdentifier, Script)> {
-    if script.is_colored() {
-        let color_id = deserialize(&script[1..34]).expect("unexpect color_id");
-        Some((color_id, Script::from(Vec::from(&script[35..]))))
-    } else {
-        None
-    }
-}
-
 // TODO: return an iterator?
 fn index_transaction(
     tx: &Transaction,
@@ -1024,7 +1015,7 @@ fn index_transaction(
     let txid = full_hash(&tx.malfix_txid()[..]);
     for (txo_index, txo) in tx.output.iter().enumerate() {
         if is_spendable(txo) || iconfig.index_unspendables {
-            if let Some((color_id, script)) = split_colored_script(&txo.script_pubkey) {
+            if let Some((color_id, script)) = txo.script_pubkey.split_color() {
                 let history = TxHistoryRow::new(
                     &txo.script_pubkey,
                     confirmed_height,

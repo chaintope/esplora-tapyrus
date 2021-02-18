@@ -16,7 +16,7 @@ use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics};
 use crate::new_index::{
-    compute_script_hash, schema::split_colored_script, schema::FullHash, ChainQuery, FundingInfo,
+    compute_script_hash, schema::FullHash, ChainQuery, FundingInfo,
     ScriptStats, SpendingInfo, SpendingInput, TxHistoryInfo, Utxo,
 };
 use crate::util::fees::{make_fee_histogram, TxFeeInfo};
@@ -334,7 +334,7 @@ impl Mempool {
                 .enumerate()
                 .filter(|(_, txo)| is_spendable(txo) || config.index_unspendables)
                 .map(|(index, txo)| {
-                    if let Some((color_id, script)) = split_colored_script(&txo.script_pubkey) {
+                    if let Some((color_id, script)) = txo.script_pubkey.split_color() {
                         vec![
                             (
                                 compute_script_hash(&txo.script_pubkey),
