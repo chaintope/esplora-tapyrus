@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::sync::mpsc::{Sender, SyncSender, TrySendError};
@@ -20,6 +20,7 @@ use crate::config::Config;
 use crate::electrum::{get_electrum_height, ProtocolVersion};
 use crate::errors::*;
 use crate::metrics::{Gauge, HistogramOpts, HistogramVec, MetricOpts, Metrics};
+use crate::new_index::schema::{ScriptStats, StatsKey, StatsMap};
 use crate::new_index::Query;
 use crate::new_index::Utxo;
 use crate::open_assets::OpenAsset;
@@ -267,6 +268,29 @@ impl Connection {
         }
     }
 
+    fn balance_to_json(
+        &self,
+        chain_stats: &StatsMap,
+        mempool_stats: &StatsMap,
+        key: StatsKey,
+    ) -> Value {
+        let initial_stat = ScriptStats::default();
+        let chain = chain_stats.get(&key).unwrap_or(&initial_stat);
+        let mempool = mempool_stats.get(&key).unwrap_or(&initial_stat);
+        let color_id = key.to_color_id();
+        match color_id {
+            Some(c) => json!({
+                "color_id": c,
+                "confirmed": chain.funded_txo_sum - chain.spent_txo_sum,
+                "unconfirmed": mempool.funded_txo_sum as i64 - mempool.spent_txo_sum as i64,
+            }),
+            None => json!({
+                "confirmed": chain.funded_txo_sum - chain.spent_txo_sum,
+                "unconfirmed": mempool.funded_txo_sum as i64 - mempool.spent_txo_sum as i64,
+            }),
+        }
+    }
+
     fn blockchain_openassets_scripthash_listunspent(&self, params: &[Value]) -> Result<Value> {
         let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
         let utxos = self.query.utxo(&script_hash[..])?;
@@ -354,10 +378,15 @@ impl Connection {
         let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
         let (chain_stats, mempool_stats) = self.query.stats(&script_hash[..]);
 
-        Ok(json!({
-            "confirmed": chain_stats.funded_txo_sum - chain_stats.spent_txo_sum,
-            "unconfirmed": mempool_stats.funded_txo_sum - mempool_stats.spent_txo_sum,
-        }))
+        let mut color_ids: HashSet<StatsKey> = chain_stats.keys().cloned().collect();
+        color_ids.extend(mempool_stats.keys().cloned().collect::<HashSet<StatsKey>>());
+
+        Ok(json!(Value::Array(
+            color_ids
+                .into_iter()
+                .map(|key| { self.balance_to_json(&chain_stats, &mempool_stats, key) })
+                .collect()
+        )))
     }
 
     fn blockchain_scripthash_get_history(&self, params: &[Value]) -> Result<Value> {

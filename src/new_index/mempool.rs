@@ -15,12 +15,14 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics};
+use crate::new_index::schema::update_stats;
+use crate::new_index::schema::StatsKey;
 use crate::new_index::{
-    compute_script_hash, schema::FullHash, ChainQuery, FundingInfo,
-    ScriptStats, SpendingInfo, SpendingInput, TxHistoryInfo, Utxo,
+    compute_script_hash, schema::FullHash, ChainQuery, FundingInfo, ScriptStats, SpendingInfo,
+    SpendingInput, TxHistoryInfo, Utxo,
 };
 use crate::util::fees::{make_fee_histogram, TxFeeInfo};
-use crate::util::{extract_tx_prevouts, full_hash, has_prevout, is_spendable, Bytes};
+use crate::util::{extract_tx_prevouts, full_hash, has_prevout, is_spendable, BlockId, Bytes};
 
 const RECENT_TXS_SIZE: usize = 10;
 const BACKLOG_STATS_TTL: u64 = 10;
@@ -175,34 +177,17 @@ impl Mempool {
     }
 
     // @XXX avoid code duplication with ChainQuery::stats()?
-    pub fn stats(&self, scripthash: &[u8]) -> ScriptStats {
+    pub fn stats(&self, scripthash: &[u8]) -> HashMap<StatsKey, ScriptStats> {
         let _timer = self.latency.with_label_values(&["stats"]).start_timer();
-        let mut stats = ScriptStats::default();
-        let mut seen_txids = HashSet::new();
-
         let entries = match self.history.get(scripthash) {
-            None => return stats,
-            Some(entries) => entries,
+            None => return HashMap::new(),
+            Some(entries) => entries
+                .iter()
+                .map(|e| (e.clone(), None))
+                .collect::<Vec<(TxHistoryInfo, Option<BlockId>)>>(),
         };
 
-        for entry in entries {
-            if seen_txids.insert(entry.get_txid()) {
-                stats.tx_count += 1;
-            }
-
-            match entry {
-                TxHistoryInfo::Funding(info) => {
-                    stats.funded_txo_count += 1;
-                    stats.funded_txo_sum += info.value;
-                }
-
-                TxHistoryInfo::Spending(info) => {
-                    stats.spent_txo_count += 1;
-                    stats.spent_txo_sum += info.value;
-                }
-            };
-        }
-
+        let (stats, _) = update_stats(HashMap::new(), &entries);
         stats
     }
 
@@ -313,6 +298,10 @@ impl Mempool {
             // An iterator over (ScriptHash, TxHistoryInfo)
             let spending = prevouts.into_iter().map(|(input_index, prevout)| {
                 let txi = tx.input.get(input_index as usize).unwrap();
+                let color_id = prevout
+                    .script_pubkey
+                    .split_color()
+                    .map(|(color_id, _)| color_id);
                 (
                     compute_script_hash(&prevout.script_pubkey),
                     TxHistoryInfo::Spending(SpendingInfo {
@@ -320,6 +309,7 @@ impl Mempool {
                         vin: input_index as u16,
                         prev_txid: full_hash(&txi.previous_output.txid[..]),
                         prev_vout: txi.previous_output.vout as u16,
+                        color_id: color_id,
                         value: prevout.value,
                     }),
                 )

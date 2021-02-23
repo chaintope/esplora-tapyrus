@@ -3,18 +3,17 @@ use crypto::digest::Digest;
 use crypto::sha2::Sha256;
 use itertools::Itertools;
 use rayon::prelude::*;
-use tapyrus::blockdata::script::ColorIdentifier;
-use tapyrus::blockdata::script::Script;
+use serde::Deserialize;
+use std::cmp::Eq;
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::hash::Hash;
+use std::path::Path;
+use std::sync::{Arc, RwLock};
+use tapyrus::blockdata::script::{ColorIdentifier, Script};
+use tapyrus::consensus::encode::{deserialize, serialize};
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 use tapyrus::util::merkleblock::MerkleBlock;
 use tapyrus::{BlockHash, Txid, VarInt};
-
-use tapyrus::consensus::encode::{deserialize, serialize};
-
-use serde::Deserialize;
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::path::Path;
-use std::sync::{Arc, RwLock};
 
 use crate::chain::{BlockHeader, Network, OutPoint, Transaction, TxOut, Value};
 use crate::config::Config;
@@ -138,6 +137,43 @@ impl ScriptStats {
             spent_txo_count: 0,
             funded_txo_sum: 0,
             spent_txo_sum: 0,
+        }
+    }
+}
+
+/// key: (u8, [u8;32]) tuple of token_type and payload
+/// value: ScriptStats
+#[derive(Hash, PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
+pub struct StatsKey(u8, [u8; 32]);
+
+pub type StatsMap = HashMap<StatsKey, ScriptStats>;
+
+impl StatsKey {
+    pub fn from_color_id(color_id: &Option<ColorIdentifier>) -> Self {
+        match color_id {
+            Some(c) => {
+                let payload = &serialize(c);
+                let payload = *array_ref![payload, 1, 32];
+                StatsKey(c.token_type.clone() as u8, payload)
+            }
+            None => StatsKey(0, [0; 32]),
+        }
+    }
+
+    pub fn from_history(history: &TxHistoryInfo) -> Self {
+        match history {
+            TxHistoryInfo::Funding(info) => StatsKey::from_color_id(&info.color_id),
+            TxHistoryInfo::Spending(info) => StatsKey::from_color_id(&info.color_id),
+        }
+    }
+
+    pub fn to_color_id(&self) -> Option<ColorIdentifier> {
+        if self.0 == 0 && self.1 == [0; 32] {
+            None
+        } else {
+            let mut v = vec![self.0];
+            v.extend(&self.1);
+            deserialize(&v).ok()
         }
     }
 }
@@ -580,84 +616,79 @@ impl ChainQuery {
         Ok((utxos, lastblock, processed_items))
     }
 
-    pub fn stats(&self, scripthash: &[u8]) -> ScriptStats {
+    pub fn stats_iter_scan(
+        &self,
+        scripthash: &[u8],
+        start_color_id: Option<ColorIdentifier>,
+    ) -> ScanIterator {
+        self.store.cache_db.iter_scan_from(
+            &StatsCacheRow::filter(scripthash),
+            &StatsCacheRow::prefix_color_id(scripthash, start_color_id),
+        )
+    }
+
+    pub fn stats(&self, scripthash: &[u8]) -> StatsMap {
         let _timer = self.start_timer("stats");
 
-        // get the last known stats and the blockhash they are updated for.
-        // invalidates the cache if the block was orphaned.
-        let cache: Option<(ScriptStats, usize)> = self
-            .store
-            .cache_db
-            .get(&StatsCacheRow::key(scripthash))
-            .map(|c| bincode::deserialize(&c).unwrap())
-            .and_then(|(stats, blockhash)| {
-                self.height_by_hash(&blockhash)
-                    .map(|height| (stats, height))
-            });
+        let mut blockheight = None;
+        let stats: StatsMap = self
+            .stats_iter_scan(scripthash, None)
+            .map(StatsCacheRow::from_row)
+            .map(|s| {
+                let color_id = s.key.color_id;
+                let (stat, blockhash): (ScriptStats, BlockHash) =
+                    bincode::deserialize(&s.value).unwrap();
+                blockheight = self.height_by_hash(&blockhash);
+                (color_id, stat)
+            })
+            .collect();
 
-        // update stats with new transactions since
-        let (newstats, lastblock) = cache.map_or_else(
-            || self.stats_delta(scripthash, ScriptStats::default(), 0),
-            |(oldstats, blockheight)| self.stats_delta(scripthash, oldstats, blockheight + 1),
-        );
+        let (newstats, lastblock) = match blockheight {
+            Some(height) => self.stats_delta(scripthash, stats, height + 1),
+            None => self.stats_delta(scripthash, stats, 0),
+        };
 
         // save updated stats to cache
         if let Some(lastblock) = lastblock {
-            if newstats.funded_txo_count + newstats.spent_txo_count > MIN_HISTORY_ITEMS_TO_CACHE {
-                self.store.cache_db.write(
-                    vec![StatsCacheRow::new(scripthash, &newstats, &lastblock).into_row()],
-                    DBFlush::Enable,
-                );
+            if self.txo_count(&newstats) > MIN_HISTORY_ITEMS_TO_CACHE {
+                for (key, stat) in &newstats {
+                    self.store.cache_db.write(
+                        vec![
+                            StatsCacheRow::new(scripthash, key.clone(), &stat, &lastblock)
+                                .into_row(),
+                        ],
+                        DBFlush::Enable,
+                    );
+                }
             }
         }
 
         newstats
     }
 
+    fn txo_count(&self, stats: &StatsMap) -> usize {
+        stats
+            .values()
+            .fold(0, |sum, x| sum + x.funded_txo_count + x.spent_txo_count)
+    }
+
     fn stats_delta(
         &self,
         scripthash: &[u8],
-        init_stats: ScriptStats,
+        init_stats: StatsMap,
         start_height: usize,
-    ) -> (ScriptStats, Option<BlockHash>) {
+    ) -> (StatsMap, Option<BlockHash>) {
         let _timer = self.start_timer("stats_delta"); // TODO: measure also the number of txns processed.
-        let history_iter = self
+        let histories = self
             .history_iter_scan(b'H', scripthash, start_height)
             .map(TxHistoryRow::from_row)
             .filter_map(|history| {
                 self.tx_confirming_block(&history.get_txid())
-                    .map(|blockid| (history, blockid))
-            });
+                    .map(|blockid| (history.key.txinfo, Some(blockid)))
+            })
+            .collect();
 
-        let mut stats = init_stats;
-        let mut seen_txids = HashSet::new();
-        let mut lastblock = None;
-
-        for (history, blockid) in history_iter {
-            if lastblock != Some(blockid.hash) {
-                seen_txids.clear();
-            }
-
-            if seen_txids.insert(history.get_txid()) {
-                stats.tx_count += 1;
-            }
-
-            match history.key.txinfo {
-                TxHistoryInfo::Funding(ref info) => {
-                    stats.funded_txo_count += 1;
-                    stats.funded_txo_sum += info.value;
-                }
-
-                TxHistoryInfo::Spending(ref info) => {
-                    stats.spent_txo_count += 1;
-                    stats.spent_txo_sum += info.value;
-                }
-            }
-
-            lastblock = Some(blockid.hash);
-        }
-
-        (stats, lastblock)
+        update_stats(init_stats, &histories)
     }
 
     pub fn address_search(&self, prefix: &str, limit: usize) -> Vec<String> {
@@ -1070,6 +1101,11 @@ fn index_transaction(
             .get(&txi.previous_output)
             .unwrap_or_else(|| panic!("missing previous txo {}", txi.previous_output));
 
+        let color_id = prev_txo
+            .script_pubkey
+            .split_color()
+            .map(|(color_id, _)| color_id);
+
         let history = TxHistoryRow::new(
             &prev_txo.script_pubkey,
             confirmed_height,
@@ -1078,6 +1114,7 @@ fn index_transaction(
                 vin: txi_index as u16,
                 prev_txid: full_hash(&txi.previous_output.txid[..]),
                 prev_vout: txi.previous_output.vout as u16,
+                color_id: color_id,
                 value: prev_txo.value,
             }),
         );
@@ -1307,7 +1344,7 @@ impl BlockRow {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FundingInfo {
     pub txid: FullHash,
     pub vout: u16,
@@ -1317,16 +1354,17 @@ pub struct FundingInfo {
     pub open_asset: Option<OpenAsset>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SpendingInfo {
     pub txid: FullHash, // spending transaction
     pub vin: u16,
     pub prev_txid: FullHash, // funding transaction
     pub prev_vout: u16,
+    pub color_id: Option<ColorIdentifier>,
     pub value: Value,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TxHistoryInfo {
     Funding(FundingInfo),
     Spending(SpendingInfo),
@@ -1476,29 +1514,62 @@ struct ScriptCacheKey {
 }
 
 struct StatsCacheRow {
-    key: ScriptCacheKey,
+    key: StatsCacheKey,
     value: Bytes,
 }
 
+#[derive(Serialize, Deserialize)]
+struct StatsCacheKey {
+    code: u8,
+    scripthash: FullHash,
+    color_id: StatsKey,
+}
+
 impl StatsCacheRow {
-    fn new(scripthash: &[u8], stats: &ScriptStats, blockhash: &BlockHash) -> Self {
+    fn new(
+        scripthash: &[u8],
+        color_id: StatsKey,
+        stats: &ScriptStats,
+        blockhash: &BlockHash,
+    ) -> Self {
         StatsCacheRow {
-            key: ScriptCacheKey {
+            key: StatsCacheKey {
                 code: b'A',
                 scripthash: full_hash(scripthash),
+                color_id: color_id,
             },
             value: bincode::serialize(&(stats, blockhash)).unwrap(),
         }
     }
 
-    pub fn key(scripthash: &[u8]) -> Bytes {
+    pub fn filter(scripthash: &[u8]) -> Bytes {
         [b"A", scripthash].concat()
+    }
+
+    pub fn prefix_color_id(scripthash: &[u8], color_id: Option<ColorIdentifier>) -> Bytes {
+        bincode::options()
+            .with_big_endian()
+            .serialize(&(
+                b"A",
+                &scripthash[..],
+                b"C",
+                &StatsKey::from_color_id(&color_id),
+            ))
+            .unwrap()
     }
 
     fn into_row(self) -> DBRow {
         DBRow {
             key: bincode::serialize(&self.key).unwrap(),
             value: self.value,
+        }
+    }
+
+    pub fn from_row(row: DBRow) -> Self {
+        let key = bincode::deserialize(&row.key).expect("failed to deserialize StatsCacheKey");
+        StatsCacheRow {
+            key,
+            value: row.value,
         }
     }
 }
@@ -1557,7 +1628,51 @@ fn from_utxo_cache(utxos_cache: CachedUtxoMap, chain: &ChainQuery) -> UtxoMap {
             let blockid = chain
                 .blockid_by_height(height as usize)
                 .expect("missing blockheader for valid utxo cache entry");
-            (outpoint, (blockid, color_id.clone(), value))
+            (outpoint, (blockid, color_id, value))
         })
         .collect()
+}
+
+pub fn update_stats(
+    init_stats: StatsMap,
+    histories: &Vec<(TxHistoryInfo, Option<BlockId>)>,
+) -> (HashMap<StatsKey, ScriptStats>, Option<BlockHash>) {
+    let mut stats = init_stats;
+    let mut seen_txids = HashSet::new();
+    let mut lastblock = None;
+
+    for (history, blockid_opt) in histories {
+        if lastblock != blockid_opt.clone().map(|blockid| blockid.hash) {
+            seen_txids.clear();
+        }
+
+        let key: StatsKey = StatsKey::from_history(&history);
+        match stats.get_mut(&key) {
+            Some(s) => _update_stats(s, &mut seen_txids, &history),
+            None => {
+                let mut s = ScriptStats::default();
+                _update_stats(&mut s, &mut seen_txids, &history);
+                stats.insert(key, s);
+            }
+        }
+        lastblock = blockid_opt.clone().map(|blockid| blockid.hash);
+    }
+    (stats, lastblock)
+}
+
+fn _update_stats(stat: &mut ScriptStats, seen_txids: &mut HashSet<Txid>, entry: &TxHistoryInfo) {
+    if seen_txids.insert(entry.get_txid()) {
+        stat.tx_count += 1;
+    }
+
+    match entry {
+        TxHistoryInfo::Funding(info) => {
+            stat.funded_txo_count += 1;
+            stat.funded_txo_sum += info.value;
+        }
+        TxHistoryInfo::Spending(info) => {
+            stat.spent_txo_count += 1;
+            stat.spent_txo_sum += info.value;
+        }
+    }
 }

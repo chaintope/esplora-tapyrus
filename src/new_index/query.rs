@@ -9,7 +9,8 @@ use crate::chain::{Network, NetworkType, OutPoint, Transaction, TxOut};
 use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
-use crate::new_index::{ChainQuery, Mempool, ScriptStats, SpendingInput, Utxo};
+use crate::new_index::schema::StatsMap;
+use crate::new_index::{ChainQuery, Mempool, SpendingInput, Utxo};
 use crate::open_assets::{compute_assets, OpenAsset};
 use crate::util::{is_spendable, BlockId, Bytes, TransactionStatus};
 
@@ -95,7 +96,7 @@ impl Query {
         confirmed_txids.chain(mempool_txids).collect()
     }
 
-    pub fn stats(&self, scripthash: &[u8]) -> (ScriptStats, ScriptStats) {
+    pub fn stats(&self, scripthash: &[u8]) -> (StatsMap, StatsMap) {
         (
             self.chain.stats(scripthash),
             self.mempool().stats(scripthash),
