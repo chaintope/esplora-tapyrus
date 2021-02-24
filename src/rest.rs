@@ -994,7 +994,7 @@ impl From<tapyrus::hashes::hex::Error> for HttpError {
 impl From<tapyrus::util::address::Error> for HttpError {
     fn from(_e: tapyrus::util::address::Error) -> Self {
         //HttpError::from(e.description().to_string())
-        HttpError::from("Invalid Bitcoin address".to_string())
+        HttpError::from("Invalid Tapyrus address".to_string())
     }
 }
 impl From<errors::Error> for HttpError {

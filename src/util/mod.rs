@@ -24,7 +24,7 @@ use tapyrus::hashes::sha256d::Hash as Sha256dHash;
 pub type Bytes = Vec<u8>;
 pub type HeaderMap = HashMap<Sha256dHash, BlockHeader>;
 
-// TODO: consolidate serialization/deserialize code for bincode/bitcoin.
+// TODO: consolidate serialization/deserialize code for bincode/tapyrus.
 const HASH_LEN: usize = 32;
 
 pub type FullHash = [u8; HASH_LEN];

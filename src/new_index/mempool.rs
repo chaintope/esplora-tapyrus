@@ -217,7 +217,7 @@ impl Mempool {
         let old_txids = HashSet::from_iter(self.txstore.keys().cloned());
         let to_remove: HashSet<&Txid> = old_txids.difference(&new_txids).collect();
 
-        // Download and add new transactions from bitcoind's mempool
+        // Download and add new transactions from tapyrusd's mempool
         let txids: Vec<&Txid> = new_txids.difference(&old_txids).collect();
         let to_add = match daemon.gettransactions(&txids) {
             Ok(txs) => txs,
