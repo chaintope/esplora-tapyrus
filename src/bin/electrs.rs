@@ -30,7 +30,7 @@ fn fetch_from(config: &Config, store: &Store) -> FetchFrom {
 
     if jsonrpc_import {
         // slower, uses JSONRPC (good for incremental updates)
-        FetchFrom::Bitcoind
+        FetchFrom::Tapyrusd
     } else {
         // faster, uses blk*.dat files (good for initial indexing)
         FetchFrom::BlkFiles

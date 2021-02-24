@@ -272,7 +272,7 @@ impl Indexer {
         assert_eq!(tip, *headers.tip());
 
         if let FetchFrom::BlkFiles = self.from {
-            self.from = FetchFrom::Bitcoind;
+            self.from = FetchFrom::Tapyrusd;
         }
 
         Ok(tip)
@@ -1367,7 +1367,7 @@ impl TxHistoryInfo {
 #[derive(Serialize, Deserialize)]
 pub struct TxHistoryKey {
     pub code: u8,              // H for script history or I for asset history (elements only)
-    pub hash: FullHash, // either a scripthash (always on bitcoin) or an asset id (elements only)
+    pub hash: FullHash, // either a scripthash (always on tapyrus) or an asset id (elements only)
     pub confirmed_height: u32, // MUST be serialized as big-endian (for correct scans).
     pub txinfo: TxHistoryInfo,
 }
