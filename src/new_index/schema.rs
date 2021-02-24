@@ -1636,25 +1636,30 @@ fn from_utxo_cache(utxos_cache: CachedUtxoMap, chain: &ChainQuery) -> UtxoMap {
 pub fn update_stats(
     init_stats: StatsMap,
     histories: &Vec<(TxHistoryInfo, Option<BlockId>)>,
-) -> (HashMap<StatsKey, ScriptStats>, Option<BlockHash>) {
+) -> (StatsMap, Option<BlockHash>) {
     let mut stats = init_stats;
-    let mut seen_txids = HashSet::new();
+    let mut seen_txids_map: HashMap<StatsKey, HashSet<Txid>> = HashMap::new();
     let mut lastblock = None;
 
     for (history, blockid_opt) in histories {
+        let key: StatsKey = StatsKey::from_history(&history);
+        let mut seen_txids = match seen_txids_map.get(&key) {
+            Some(seen_txids) => seen_txids.clone(),
+            None => HashSet::new(),
+        };
         if lastblock != blockid_opt.clone().map(|blockid| blockid.hash) {
             seen_txids.clear();
         }
 
-        let key: StatsKey = StatsKey::from_history(&history);
         match stats.get_mut(&key) {
             Some(s) => _update_stats(s, &mut seen_txids, &history),
             None => {
                 let mut s = ScriptStats::default();
                 _update_stats(&mut s, &mut seen_txids, &history);
-                stats.insert(key, s);
+                stats.insert(key.clone(), s);
             }
         }
+        seen_txids_map.insert(key, seen_txids);
         lastblock = blockid_opt.clone().map(|blockid| blockid.hash);
     }
     (stats, lastblock)
@@ -1674,5 +1679,190 @@ fn _update_stats(stat: &mut ScriptStats, seen_txids: &mut HashSet<Txid>, entry: 
             stat.spent_txo_count += 1;
             stat.spent_txo_sum += info.value;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_update_stats_for_chain() {
+        let stats = StatsMap::new();
+
+        let funding_txid =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        let spending_txid =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
+
+        let blockhash1 = deserialize(
+            &hex::decode("0000000000000000000000000000000000000000000000000000000000000011")
+                .unwrap(),
+        )
+        .unwrap();
+        let blockhash2 = deserialize(
+            &hex::decode("0000000000000000000000000000000000000000000000000000000000000012")
+                .unwrap(),
+        )
+        .unwrap();
+
+        let funding = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&funding_txid),
+                vout: 0,
+                color_id: None,
+                value: 100,
+                open_asset: None,
+            }),
+            Some(BlockId {
+                height: 1,
+                hash: blockhash1,
+                time: 0,
+            }),
+        );
+
+        let spending = (
+            TxHistoryInfo::Spending(SpendingInfo {
+                txid: full_hash(&spending_txid),
+                vin: 0,
+                prev_txid: full_hash(&funding_txid),
+                prev_vout: 0,
+                color_id: None,
+                value: 100,
+            }),
+            Some(BlockId {
+                height: 2,
+                hash: blockhash2,
+                time: 0,
+            }),
+        );
+
+        let (newstats, latestblock) = update_stats(stats, &vec![funding, spending]);
+        assert_eq!(newstats.len(), 1);
+
+        let stat: &ScriptStats = newstats.values().nth(0).unwrap();
+        assert_eq!(stat.tx_count, 2);
+        assert_eq!(stat.funded_txo_count, 1);
+        assert_eq!(stat.funded_txo_sum, 100);
+        assert_eq!(stat.spent_txo_count, 1);
+        assert_eq!(stat.spent_txo_sum, 100);
+        assert_eq!(latestblock, Some(blockhash2));
+    }
+
+    #[test]
+    fn test_update_stats_for_mempool() {
+        let stats = StatsMap::new();
+
+        let funding_txid =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        let spending_txid =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
+
+        let funding = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&funding_txid),
+                vout: 0,
+                color_id: None,
+                value: 100,
+                open_asset: None,
+            }),
+            None,
+        );
+
+        let spending = (
+            TxHistoryInfo::Spending(SpendingInfo {
+                txid: full_hash(&spending_txid),
+                vin: 0,
+                prev_txid: full_hash(&funding_txid),
+                prev_vout: 0,
+                color_id: None,
+                value: 100,
+            }),
+            None,
+        );
+
+        let (newstats, latestblock) = update_stats(stats, &vec![funding, spending]);
+        assert_eq!(newstats.len(), 1);
+
+        let stat: &ScriptStats = newstats.values().nth(0).unwrap();
+        assert_eq!(stat.tx_count, 2);
+        assert_eq!(stat.funded_txo_count, 1);
+        assert_eq!(stat.funded_txo_sum, 100);
+        assert_eq!(stat.spent_txo_count, 1);
+        assert_eq!(stat.spent_txo_sum, 100);
+        assert_eq!(latestblock, None);
+    }
+
+    #[test]
+    fn test_update_stats_colored() {
+        let stats = StatsMap::new();
+
+        let txid1 =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        let txid2 =
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
+
+        let funding1 = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&txid1),
+                vout: 0,
+                color_id: None,
+                value: 100,
+                open_asset: None,
+            }),
+            None,
+        );
+
+        let spending1 = (
+            TxHistoryInfo::Spending(SpendingInfo {
+                txid: full_hash(&txid2),
+                vin: 0,
+                prev_txid: full_hash(&txid1),
+                prev_vout: 0,
+                color_id: None,
+                value: 100,
+            }),
+            None,
+        );
+
+        let out_point = tapyrus::OutPoint::new(deserialize(&txid1).unwrap(), 0);
+        let color_id = ColorIdentifier::nft(out_point);
+
+        let funding2 = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&txid2),
+                vout: 0,
+                color_id: Some(color_id.clone()),
+                value: 200,
+                open_asset: None,
+            }),
+            None,
+        );
+
+        let (newstats, latestblock) = update_stats(stats, &vec![funding1, spending1, funding2,]);
+        assert_eq!(newstats.len(), 2);
+
+        let stat: &ScriptStats = newstats.get(&StatsKey::from_color_id(&None)).unwrap();
+        assert_eq!(stat.tx_count, 2);
+        assert_eq!(stat.funded_txo_count, 1);
+        assert_eq!(stat.funded_txo_sum, 100);
+        assert_eq!(stat.spent_txo_count, 1);
+        assert_eq!(stat.spent_txo_sum, 100);
+        assert_eq!(latestblock, None);
+
+        let stat: &ScriptStats = newstats.get(&StatsKey::from_color_id(&Some(color_id))).unwrap();
+        assert_eq!(stat.tx_count, 1);
+        assert_eq!(stat.funded_txo_count, 1);
+        assert_eq!(stat.funded_txo_sum, 200);
+        assert_eq!(stat.spent_txo_count, 0);
+        assert_eq!(stat.spent_txo_sum, 0);
+        assert_eq!(latestblock, None);
     }
 }
