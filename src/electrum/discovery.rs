@@ -513,7 +513,7 @@ mod tests {
         stderrlog::new().verbosity(4).init().unwrap();
 
         let discovery = DiscoveryManager::new(
-            Network::Testnet,
+            Network::Dev,
             "1.4".parse().unwrap(),
             Some("127.0.0.1:9150".parse().unwrap()),
         );
