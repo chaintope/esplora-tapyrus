@@ -622,7 +622,7 @@ impl ChainQuery {
         start_color_id: Option<ColorIdentifier>,
     ) -> ScanIterator {
         self.store.cache_db.iter_scan_from(
-            &StatsCacheRow::filter(scripthash),
+            &StatsCacheRow::key(scripthash),
             &StatsCacheRow::prefix_color_id(scripthash, start_color_id),
         )
     }
@@ -1542,7 +1542,7 @@ impl StatsCacheRow {
         }
     }
 
-    pub fn filter(scripthash: &[u8]) -> Bytes {
+    pub fn key(scripthash: &[u8]) -> Bytes {
         [b"A", scripthash].concat()
     }
 
