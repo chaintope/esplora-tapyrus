@@ -20,7 +20,7 @@ use crate::config::Config;
 use crate::electrum::{get_electrum_height, ProtocolVersion};
 use crate::errors::*;
 use crate::metrics::{Gauge, HistogramOpts, HistogramVec, MetricOpts, Metrics};
-use crate::new_index::schema::{ScriptStats, StatsKey, StatsMap};
+use crate::new_index::schema::{ScriptStats, StatsMap};
 use crate::new_index::Query;
 use crate::new_index::Utxo;
 use crate::open_assets::OpenAsset;
@@ -250,7 +250,7 @@ impl Connection {
                     "asset_quantity": asset.asset_quantity
                 }
             })
-        } else if utxo.color_id.is_some() {
+        } else if utxo.color_id.is_colored() {
             json!({
                 "height": utxo.confirmed.clone().map_or(0, |b| b.height),
                 "tx_pos": utxo.vout,
@@ -272,22 +272,22 @@ impl Connection {
         &self,
         chain_stats: &StatsMap,
         mempool_stats: &StatsMap,
-        key: StatsKey,
+        color_id: ColorIdentifier,
     ) -> Value {
         let initial_stat = ScriptStats::default();
-        let chain = chain_stats.get(&key).unwrap_or(&initial_stat);
-        let mempool = mempool_stats.get(&key).unwrap_or(&initial_stat);
-        let color_id = key.to_color_id();
-        match color_id {
-            Some(c) => json!({
-                "color_id": c,
+        let chain = chain_stats.get(&color_id).unwrap_or(&initial_stat);
+        let mempool = mempool_stats.get(&color_id).unwrap_or(&initial_stat);
+        if color_id.is_colored() {
+            json!({
+                "color_id": color_id,
                 "confirmed": chain.funded_txo_sum - chain.spent_txo_sum,
                 "unconfirmed": mempool.funded_txo_sum as i64 - mempool.spent_txo_sum as i64,
-            }),
-            None => json!({
+            })
+        } else {
+            json!({
                 "confirmed": chain.funded_txo_sum - chain.spent_txo_sum,
                 "unconfirmed": mempool.funded_txo_sum as i64 - mempool.spent_txo_sum as i64,
-            }),
+            })
         }
     }
 
@@ -378,8 +378,13 @@ impl Connection {
         let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
         let (chain_stats, mempool_stats) = self.query.stats(&script_hash[..]);
 
-        let mut color_ids: HashSet<StatsKey> = chain_stats.keys().cloned().collect();
-        color_ids.extend(mempool_stats.keys().cloned().collect::<HashSet<StatsKey>>());
+        let mut color_ids: HashSet<ColorIdentifier> = chain_stats.keys().cloned().collect();
+        color_ids.extend(
+            mempool_stats
+                .keys()
+                .cloned()
+                .collect::<HashSet<ColorIdentifier>>(),
+        );
 
         Ok(json!(Value::Array(
             color_ids
@@ -426,7 +431,8 @@ impl Connection {
         Ok(json!(Value::Array(
             utxos
                 .into_iter()
-                .filter(|o| o.color_id.is_some() && (color_id.is_none() || color_id == o.color_id))
+                .filter(|o| o.color_id.is_colored()
+                    && (color_id.is_none() || color_id == Some(o.color_id.clone())))
                 .map(|utxo| self.utxo_to_json(&utxo, None))
                 .collect()
         )))
@@ -438,7 +444,7 @@ impl Connection {
         Ok(json!(Value::Array(
             utxos
                 .into_iter()
-                .filter(|o| o.color_id.is_none())
+                .filter(|o| o.color_id.is_default())
                 .map(|utxo| self.utxo_to_json(&utxo, None))
                 .collect()
         )))

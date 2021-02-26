@@ -4,9 +4,7 @@ use crypto::sha2::Sha256;
 use itertools::Itertools;
 use rayon::prelude::*;
 use serde::Deserialize;
-use std::cmp::Eq;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::hash::Hash;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tapyrus::blockdata::script::{ColorIdentifier, Script};
@@ -93,14 +91,14 @@ impl Store {
     }
 }
 
-type UtxoMap = HashMap<OutPoint, (BlockId, Option<ColorIdentifier>, Value)>;
+type UtxoMap = HashMap<OutPoint, (BlockId, ColorIdentifier, Value)>;
 
 #[derive(Debug)]
 pub struct Utxo {
     pub txid: Txid,
     pub vout: u32,
     pub confirmed: Option<BlockId>,
-    pub color_id: Option<ColorIdentifier>,
+    pub color_id: ColorIdentifier,
     pub value: Value,
 }
 
@@ -141,42 +139,7 @@ impl ScriptStats {
     }
 }
 
-/// key: (u8, [u8;32]) tuple of token_type and payload
-/// value: ScriptStats
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
-pub struct StatsKey(u8, [u8; 32]);
-
-pub type StatsMap = HashMap<StatsKey, ScriptStats>;
-
-impl StatsKey {
-    pub fn from_color_id(color_id: &Option<ColorIdentifier>) -> Self {
-        match color_id {
-            Some(c) => {
-                let payload = &serialize(c);
-                let payload = *array_ref![payload, 1, 32];
-                StatsKey(c.token_type.clone() as u8, payload)
-            }
-            None => StatsKey(0, [0; 32]),
-        }
-    }
-
-    pub fn from_history(history: &TxHistoryInfo) -> Self {
-        match history {
-            TxHistoryInfo::Funding(info) => StatsKey::from_color_id(&info.color_id),
-            TxHistoryInfo::Spending(info) => StatsKey::from_color_id(&info.color_id),
-        }
-    }
-
-    pub fn to_color_id(&self) -> Option<ColorIdentifier> {
-        if self.0 == 0 && self.1 == [0; 32] {
-            None
-        } else {
-            let mut v = vec![self.0];
-            v.extend(&self.1);
-            deserialize(&v).ok()
-        }
-    }
-}
+pub type StatsMap = HashMap<ColorIdentifier, ScriptStats>;
 
 pub struct Indexer {
     store: Arc<Store>,
@@ -619,7 +582,7 @@ impl ChainQuery {
     pub fn stats_iter_scan(
         &self,
         scripthash: &[u8],
-        start_color_id: Option<ColorIdentifier>,
+        start_color_id: ColorIdentifier,
     ) -> ScanIterator {
         self.store.cache_db.iter_scan_from(
             &StatsCacheRow::key(scripthash),
@@ -632,7 +595,7 @@ impl ChainQuery {
 
         let mut blockheight = None;
         let stats: StatsMap = self
-            .stats_iter_scan(scripthash, None)
+            .stats_iter_scan(scripthash, ColorIdentifier::default())
             .map(StatsCacheRow::from_row)
             .map(|s| {
                 let color_id = s.key.color_id;
@@ -1053,7 +1016,7 @@ fn index_transaction(
                     TxHistoryInfo::Funding(FundingInfo {
                         txid,
                         vout: txo_index as u16,
-                        color_id: Some(color_id.clone()),
+                        color_id: color_id.clone(),
                         value: txo.value,
                         open_asset: None,
                     }),
@@ -1065,7 +1028,7 @@ fn index_transaction(
                     TxHistoryInfo::Funding(FundingInfo {
                         txid,
                         vout: txo_index as u16,
-                        color_id: Some(color_id.clone()),
+                        color_id: color_id.clone(),
                         value: txo.value,
                         open_asset: None,
                     }),
@@ -1078,7 +1041,7 @@ fn index_transaction(
                     TxHistoryInfo::Funding(FundingInfo {
                         txid,
                         vout: txo_index as u16,
-                        color_id: None,
+                        color_id: ColorIdentifier::default(),
                         value: txo.value,
                         open_asset: None,
                     }),
@@ -1104,7 +1067,8 @@ fn index_transaction(
         let color_id = prev_txo
             .script_pubkey
             .split_color()
-            .map(|(color_id, _)| color_id);
+            .map(|(color_id, _)| color_id)
+            .unwrap_or(ColorIdentifier::default());
 
         let history = TxHistoryRow::new(
             &prev_txo.script_pubkey,
@@ -1348,7 +1312,7 @@ impl BlockRow {
 pub struct FundingInfo {
     pub txid: FullHash,
     pub vout: u16,
-    pub color_id: Option<ColorIdentifier>,
+    pub color_id: ColorIdentifier,
     pub value: Value,
     #[serde(skip)]
     pub open_asset: Option<OpenAsset>,
@@ -1360,7 +1324,7 @@ pub struct SpendingInfo {
     pub vin: u16,
     pub prev_txid: FullHash, // funding transaction
     pub prev_vout: u16,
-    pub color_id: Option<ColorIdentifier>,
+    pub color_id: ColorIdentifier,
     pub value: Value,
 }
 
@@ -1389,6 +1353,13 @@ impl TxHistoryInfo {
                 txid: deserialize(&info.prev_txid).unwrap(),
                 vout: info.prev_vout as u32,
             },
+        }
+    }
+
+    pub fn color_id(&self) -> ColorIdentifier {
+        match self {
+            TxHistoryInfo::Funding(ref info) => info.color_id.clone(),
+            TxHistoryInfo::Spending(ref info) => info.color_id.clone(),
         }
     }
 }
@@ -1522,13 +1493,13 @@ struct StatsCacheRow {
 struct StatsCacheKey {
     code: u8,
     scripthash: FullHash,
-    color_id: StatsKey,
+    color_id: ColorIdentifier,
 }
 
 impl StatsCacheRow {
     fn new(
         scripthash: &[u8],
-        color_id: StatsKey,
+        color_id: ColorIdentifier,
         stats: &ScriptStats,
         blockhash: &BlockHash,
     ) -> Self {
@@ -1546,15 +1517,10 @@ impl StatsCacheRow {
         [b"A", scripthash].concat()
     }
 
-    pub fn prefix_color_id(scripthash: &[u8], color_id: Option<ColorIdentifier>) -> Bytes {
+    pub fn prefix_color_id(scripthash: &[u8], color_id: ColorIdentifier) -> Bytes {
         bincode::options()
             .with_big_endian()
-            .serialize(&(
-                b"A",
-                &scripthash[..],
-                b"C",
-                &StatsKey::from_color_id(&color_id),
-            ))
+            .serialize(&(b"A", &scripthash[..], b"C", &color_id))
             .unwrap()
     }
 
@@ -1574,7 +1540,7 @@ impl StatsCacheRow {
     }
 }
 
-type CachedUtxoMap = HashMap<(Txid, u32), (u32, Option<ColorIdentifier>, Value)>; // (txid,vout) => (block_height, color_id, output_value)
+type CachedUtxoMap = HashMap<(Txid, u32), (u32, ColorIdentifier, Value)>; // (txid,vout) => (block_height, color_id, output_value)
 
 struct UtxoCacheRow {
     key: ScriptCacheKey,
@@ -1638,12 +1604,12 @@ pub fn update_stats(
     histories: &Vec<(TxHistoryInfo, Option<BlockId>)>,
 ) -> (StatsMap, Option<BlockHash>) {
     let mut stats = init_stats;
-    let mut seen_txids_map: HashMap<StatsKey, HashSet<Txid>> = HashMap::new();
+    let mut seen_txids_map: HashMap<ColorIdentifier, HashSet<Txid>> = HashMap::new();
     let mut lastblock = None;
 
     for (history, blockid_opt) in histories {
-        let key: StatsKey = StatsKey::from_history(&history);
-        let mut seen_txids = match seen_txids_map.get(&key) {
+        let color_id: ColorIdentifier = history.color_id();
+        let mut seen_txids = match seen_txids_map.get(&color_id) {
             Some(seen_txids) => seen_txids.clone(),
             None => HashSet::new(),
         };
@@ -1651,15 +1617,15 @@ pub fn update_stats(
             seen_txids.clear();
         }
 
-        match stats.get_mut(&key) {
+        match stats.get_mut(&color_id) {
             Some(s) => _update_stats(s, &mut seen_txids, &history),
             None => {
                 let mut s = ScriptStats::default();
                 _update_stats(&mut s, &mut seen_txids, &history);
-                stats.insert(key.clone(), s);
+                stats.insert(color_id.clone(), s);
             }
         }
-        seen_txids_map.insert(key, seen_txids);
+        seen_txids_map.insert(color_id, seen_txids);
         lastblock = blockid_opt.clone().map(|blockid| blockid.hash);
     }
     (stats, lastblock)
@@ -1713,7 +1679,7 @@ mod tests {
             TxHistoryInfo::Funding(FundingInfo {
                 txid: full_hash(&funding_txid),
                 vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
                 open_asset: None,
             }),
@@ -1730,7 +1696,7 @@ mod tests {
                 vin: 0,
                 prev_txid: full_hash(&funding_txid),
                 prev_vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
             }),
             Some(BlockId {
@@ -1767,7 +1733,7 @@ mod tests {
             TxHistoryInfo::Funding(FundingInfo {
                 txid: full_hash(&funding_txid),
                 vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
                 open_asset: None,
             }),
@@ -1780,7 +1746,7 @@ mod tests {
                 vin: 0,
                 prev_txid: full_hash(&funding_txid),
                 prev_vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
             }),
             None,
@@ -1802,18 +1768,16 @@ mod tests {
     fn test_update_stats_colored() {
         let stats = StatsMap::new();
 
-        let txid1 =
-            hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
-                .unwrap();
-        let txid2 =
-            hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
-                .unwrap();
+        let txid1 = hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap();
+        let txid2 = hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+            .unwrap();
 
         let funding1 = (
             TxHistoryInfo::Funding(FundingInfo {
                 txid: full_hash(&txid1),
                 vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
                 open_asset: None,
             }),
@@ -1826,7 +1790,7 @@ mod tests {
                 vin: 0,
                 prev_txid: full_hash(&txid1),
                 prev_vout: 0,
-                color_id: None,
+                color_id: ColorIdentifier::default(),
                 value: 100,
             }),
             None,
@@ -1839,17 +1803,17 @@ mod tests {
             TxHistoryInfo::Funding(FundingInfo {
                 txid: full_hash(&txid2),
                 vout: 0,
-                color_id: Some(color_id.clone()),
+                color_id: color_id.clone(),
                 value: 200,
                 open_asset: None,
             }),
             None,
         );
 
-        let (newstats, latestblock) = update_stats(stats, &vec![funding1, spending1, funding2,]);
+        let (newstats, latestblock) = update_stats(stats, &vec![funding1, spending1, funding2]);
         assert_eq!(newstats.len(), 2);
 
-        let stat: &ScriptStats = newstats.get(&StatsKey::from_color_id(&None)).unwrap();
+        let stat: &ScriptStats = newstats.get(&ColorIdentifier::default()).unwrap();
         assert_eq!(stat.tx_count, 2);
         assert_eq!(stat.funded_txo_count, 1);
         assert_eq!(stat.funded_txo_sum, 100);
@@ -1857,7 +1821,7 @@ mod tests {
         assert_eq!(stat.spent_txo_sum, 100);
         assert_eq!(latestblock, None);
 
-        let stat: &ScriptStats = newstats.get(&StatsKey::from_color_id(&Some(color_id))).unwrap();
+        let stat: &ScriptStats = newstats.get(&color_id).unwrap();
         assert_eq!(stat.tx_count, 1);
         assert_eq!(stat.funded_txo_count, 1);
         assert_eq!(stat.funded_txo_sum, 200);

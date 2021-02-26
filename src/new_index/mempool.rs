@@ -3,6 +3,7 @@ use itertools::Itertools;
 use tapyrus::consensus::encode::deserialize;
 use tapyrus::Txid;
 
+use tapyrus::blockdata::script::ColorIdentifier;
 use tapyrus::consensus::encode::serialize;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -16,7 +17,6 @@ use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics};
 use crate::new_index::schema::update_stats;
-use crate::new_index::schema::StatsKey;
 use crate::new_index::{
     compute_script_hash, schema::FullHash, ChainQuery, FundingInfo, ScriptStats, SpendingInfo,
     SpendingInput, TxHistoryInfo, Utxo,
@@ -177,7 +177,7 @@ impl Mempool {
     }
 
     // @XXX avoid code duplication with ChainQuery::stats()?
-    pub fn stats(&self, scripthash: &[u8]) -> HashMap<StatsKey, ScriptStats> {
+    pub fn stats(&self, scripthash: &[u8]) -> HashMap<ColorIdentifier, ScriptStats> {
         let _timer = self.latency.with_label_values(&["stats"]).start_timer();
         let entries = match self.history.get(scripthash) {
             None => return HashMap::new(),
@@ -301,7 +301,8 @@ impl Mempool {
                 let color_id = prevout
                     .script_pubkey
                     .split_color()
-                    .map(|(color_id, _)| color_id);
+                    .map(|(color_id, _)| color_id)
+                    .unwrap_or(ColorIdentifier::default());
                 (
                     compute_script_hash(&prevout.script_pubkey),
                     TxHistoryInfo::Spending(SpendingInfo {
@@ -331,7 +332,7 @@ impl Mempool {
                                 TxHistoryInfo::Funding(FundingInfo {
                                     txid: txid_bytes,
                                     vout: index as u16,
-                                    color_id: Some(color_id.clone()),
+                                    color_id: color_id.clone(),
                                     value: txo.value,
                                     open_asset: None,
                                 }),
@@ -341,7 +342,7 @@ impl Mempool {
                                 TxHistoryInfo::Funding(FundingInfo {
                                     txid: txid_bytes,
                                     vout: index as u16,
-                                    color_id: Some(color_id.clone()),
+                                    color_id: color_id.clone(),
                                     value: txo.value,
                                     open_asset: None,
                                 }),
@@ -353,7 +354,7 @@ impl Mempool {
                             TxHistoryInfo::Funding(FundingInfo {
                                 txid: txid_bytes,
                                 vout: index as u16,
-                                color_id: None,
+                                color_id: ColorIdentifier::default(),
                                 value: txo.value,
                                 open_asset: None,
                             }),

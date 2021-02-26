@@ -54,7 +54,7 @@ hyperlocal = "0.7"
 tokio = { version = "=0.2.6", features = ["sync", "macros"] }
 
 [dependencies.tapyrus]
-version = "^0.4.3"
+version = "^0.4.4"
 features = ["use-serde"]
 
 [dev-dependencies]
