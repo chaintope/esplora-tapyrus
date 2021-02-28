@@ -29,7 +29,7 @@ impl Waiter {
             receiver: notify(&[
                 signal_hook::SIGINT,
                 signal_hook::SIGTERM,
-                signal_hook::SIGUSR1, // allow external triggering (e.g. via bitcoind `blocknotify`)
+                signal_hook::SIGUSR1, // allow external triggering (e.g. via tapyrusd `blocknotify`)
             ]),
         }
     }

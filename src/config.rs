@@ -53,7 +53,7 @@ fn str_to_socketaddr(address: &str, what: &str) -> SocketAddr {
 impl Config {
     pub fn from_args() -> Config {
         let network_help = format!(
-            "Select Bitcoin network type ({})",
+            "Select tapyrus network type ({}) (default: prod)",
             NetworkType::names().join(", ")
         );
 
@@ -79,19 +79,19 @@ impl Config {
             .arg(
                 Arg::with_name("daemon_dir")
                     .long("daemon-dir")
-                    .help("Data directory of Bitcoind (default: ~/.bitcoin/)")
+                    .help("Data directory of Tapyrusd (default: ~/.tapyrus/prod-1)")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("blocks_dir")
                     .long("blocks-dir")
-                    .help("Analogous to bitcoind's -blocksdir option, this specifies the directory containing the raw blocks files (blk*.dat) (default: ~/.bitcoin/blocks/)")
+                    .help("Analogous to tapyrusd's -blocksdir option, this specifies the directory containing the raw blocks files (blk*.dat) (default: ~/.tapyrus/prod-1/blocks/)")
                     .takes_value(true),
             )
             .arg(
                 Arg::with_name("cookie")
                     .long("cookie")
-                    .help("JSONRPC authentication cookie ('USER:PASSWORD', default: read from ~/.bitcoin/.cookie)")
+                    .help("JSONRPC authentication cookie ('USER:PASSWORD', default: read from ~/.tapyrus/prod-1/.cookie)")
                     .takes_value(true),
             )
             .arg(
@@ -109,7 +109,7 @@ impl Config {
             .arg(
                 Arg::with_name("network_id")
                     .long("network-id")
-                    .help("Select tapyrus network id")
+                    .help("Select tapyrus network id (default: 1)")
                     .takes_value(true),
             )
             .arg(
@@ -121,7 +121,7 @@ impl Config {
             .arg(
                 Arg::with_name("daemon_rpc_addr")
                     .long("daemon-rpc-addr")
-                    .help("Bitcoin daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:8332 for prod and 127.0.0.1:18443 for dev)")
+                    .help("Tapyrus daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:2377 for prod and 127.0.0.1:12381 for dev)")
                     .takes_value(true),
             )
             .arg(
@@ -194,7 +194,7 @@ impl Config {
 
         let m = args.get_matches();
 
-        let network_name = m.value_of("network").unwrap_or("mainnet");
+        let network_name = m.value_of("network").unwrap_or("prod");
         let network_id = u32::from_str(m.value_of("network_id").unwrap_or("1"))
             .expect("failed to get network id");
         let network = Network::new(network_name, network_id);
@@ -221,7 +221,7 @@ impl Config {
         let daemon_rpc_addr: SocketAddr = str_to_socketaddr(
             m.value_of("daemon_rpc_addr")
                 .unwrap_or(&format!("127.0.0.1:{}", default_daemon_port)),
-            "Bitcoin RPC",
+            "Tapyrus RPC",
         );
         let electrum_rpc_addr: SocketAddr = str_to_socketaddr(
             m.value_of("electrum_rpc_addr")
@@ -246,7 +246,8 @@ impl Config {
             .map(PathBuf::from)
             .unwrap_or_else(|| {
                 let mut default_dir = home_dir().expect("no homedir");
-                default_dir.push(".bitcoin");
+                default_dir.push(".tapyrus");
+                default_dir.push(format!("{}-{}", network_name, network_id));
                 default_dir
             });
         let blocks_dir = m
