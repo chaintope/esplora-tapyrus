@@ -109,7 +109,7 @@ pub struct BlockchainInfo {
 struct NetworkInfo {
     version: u64,
     subversion: String,
-    relayfee: f64, // in BTC/kB
+    relayfee: f64, // in TPC/kB
 }
 
 pub trait CookieGetter: Send + Sync {
@@ -552,7 +552,7 @@ impl Daemon {
                     return None;
                 }
 
-                // from BTC/kB to sat/b
+                // from TPC/kB to tapyrus/b
                 Some((*target, feerate * 100_000f64))
             })
             .collect())
@@ -621,7 +621,7 @@ impl Daemon {
     pub fn get_relayfee(&self) -> Result<f64> {
         let relayfee = self.getnetworkinfo()?.relayfee;
 
-        // from BTC/kB to sat/b
+        // from TPC/kB to tapyrus/b
         Ok(relayfee * 100_000f64)
     }
 }

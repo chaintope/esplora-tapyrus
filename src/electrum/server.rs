@@ -234,7 +234,7 @@ impl Connection {
             .query
             .estimate_fee(conf_target as u16)
             .chain_err(|| format!("cannot estimate fee for {} blocks", conf_target))?;
-        // convert from sat/b to BTC/kB, as expected by Electrum clients
+        // convert from tapyrus/b to TPC/kB, as expected by Electrum clients
         Ok(json!(fee_rate / 100_000f64))
     }
 
@@ -357,7 +357,7 @@ impl Connection {
 
     fn blockchain_relayfee(&self) -> Result<Value> {
         let relayfee = self.query.get_relayfee()?;
-        // convert from sat/b to BTC/kB, as expected by Electrum clients
+        // convert from tapyrus/b to TPC/kB, as expected by Electrum clients
         Ok(json!(relayfee / 100_000f64))
     }
 
