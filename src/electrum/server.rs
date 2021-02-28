@@ -10,10 +10,12 @@ use crypto::sha2::Sha256;
 use error_chain::ChainedError;
 use hex;
 use serde_json::{from_str, Value};
-use tapyrus::blockdata::script::ColorIdentifier;
-use tapyrus::blockdata::transaction::OutPoint;
+use tapyrus::blockdata::block::BlockHeader;
+use tapyrus::blockdata::script::{ColorIdentifier, Script};
+use tapyrus::blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut};
 use tapyrus::consensus::encode::{deserialize, serialize};
 use tapyrus::hashes::sha256d::Hash as Sha256dHash;
+use tapyrus::util::amount::Amount;
 use tapyrus::Txid;
 
 use crate::config::Config;
@@ -291,6 +293,59 @@ impl Connection {
         }
     }
 
+    fn script_sig_to_json(&self, script_sig: &Script) -> Value {
+        json!({
+            "asm": script_sig.asm(),
+            "hex": format!("{:x}", script_sig)
+        })
+    }
+
+    fn input_to_json(&self, input: &TxIn) -> Value {
+        json!({
+            "scriptSig": self.script_sig_to_json(&input.script_sig),
+            "sequence": input.sequence,
+            "txid": input.previous_output.txid,
+            "vout": input.previous_output.vout,
+        })
+    }
+
+    fn script_pubkey_to_json(&self, script_pubkey: &Script) -> Value {
+        // TODO: `reqSigs` and `addresses` fields should be added.
+        json!({
+            "asm": script_pubkey.asm(),
+            "hex": format!("{:x}", script_pubkey),
+            "type": script_pubkey.type_string()
+        })
+    }
+
+    fn output_to_json(&self, index: usize, output: &TxOut) -> Value {
+        json!({
+            "n": index,
+            "scriptPubKey": self.script_pubkey_to_json(&output.script_pubkey),
+            "value": Amount::from_tap(output.value).as_tpc(),
+        })
+    }
+
+    /// Write JSON for transaction data
+    /// see https://electrumx.readthedocs.io/en/latest/protocol-methods.html#blockchain-transaction-get
+    fn transaction_to_json(&self, transaction: &Transaction, confirmations: usize, header: &BlockHeader) -> Value {
+        let ser = serialize(transaction);
+        json!({
+            "blockhash": header.block_hash(),
+            "blocktime": header.time,
+            "confirmations": confirmations,
+            "hash": transaction.malfix_txid(),
+            "hex": hex::encode(ser),
+            "locktime": transaction.lock_time,
+            "size": transaction.get_size(),
+            "time": header.time,
+            "txid": transaction.malfix_txid(),
+            "version": transaction.version,
+            "vin": transaction.input.iter().map(|input| self.input_to_json(&input)).collect::<Value>(),
+            "vout": transaction.output.iter().enumerate().map(|(i, output)| self.output_to_json(i, &output)).collect::<Value>(),
+        })
+    }
+
     fn blockchain_openassets_scripthash_listunspent(&self, params: &[Value]) -> Result<Value> {
         let script_hash = hash_from_value(params.get(0)).chain_err(|| "bad script_hash")?;
         let utxos = self.query.utxo(&script_hash[..])?;
@@ -467,16 +522,31 @@ impl Connection {
             None => false,
         };
 
-        // FIXME: implement verbose support
-        if verbose {
-            bail!("verbose transactions are currently unsupported");
-        }
-
         let tx = self
             .query
             .lookup_raw_txn(&tx_hash)
             .chain_err(|| "missing transaction")?;
-        Ok(json!(hex::encode(tx)))
+        if verbose {
+            let tx: Transaction = deserialize(&tx).chain_err(|| "can not deserialize raw tx")?;
+            let blockid = self
+                .query
+                .chain()
+                .tx_confirming_block(&tx_hash)
+                .ok_or_else(|| "tx not found or is unconfirmed")?;
+            let entry = self
+                .query
+                .chain()
+                .header_by_height(blockid.height)
+                .ok_or_else(|| "block not found")?;
+            let best_height = self
+                .query
+                .chain()
+                .best_height();
+            let confirmations = best_height - entry.height();
+            Ok(self.transaction_to_json(&tx, confirmations, &entry.header()))
+        } else {
+            Ok(json!(hex::encode(tx)))
+        }
     }
 
     fn blockchain_transaction_get_merkle(&self, params: &[Value]) -> Result<Value> {
