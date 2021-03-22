@@ -3,30 +3,28 @@ import hashlib
 import sys
 import argparse
 
-from pycoin.coins.bitcoin.networks import BitcoinTestnet, BitcoinMainnet
-
 import client
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--testnet', action='store_true')
+    parser.add_argument('--dev', action='store_true')
     parser.add_argument('address', nargs='+')
     args = parser.parse_args()
 
-    if args.testnet:
-        Network = BitcoinTestnet
+    if args.dev:
         port = 60001
+        from pycoin.symbols.xtn import network
     else:
-        Network = BitcoinMainnet
         port = 50001
+        from pycoin.symbols.btc import network
 
-    conn = client.Connection(('localhost', port))
+    conn = client.Client(('localhost', port))
     for addr in args.address:
-        script = Network.ui.script_for_address(addr)
+        script = network.parse.address(addr).script()
         script_hash = hashlib.sha256(script).digest()[::-1].hex()
         reply = conn.call('blockchain.scripthash.get_balance', script_hash)
         result = reply['result']
-        print('{} has {} satoshis'.format(addr, result))
+        print('{} has {} tapyrus'.format(addr, result))
 
 
 if __name__ == '__main__':
