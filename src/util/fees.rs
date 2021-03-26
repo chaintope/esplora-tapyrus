@@ -27,8 +27,17 @@ pub fn get_tx_fee(tx: &Transaction, prevouts: &HashMap<u32, &TxOut>, _network: N
         return 0;
     }
 
-    let total_in: u64 = prevouts.values().map(|prevout| prevout.value).sum();
-    let total_out: u64 = tx.output.iter().map(|vout| vout.value).sum();
+    let total_in: u64 = prevouts
+        .values()
+        .filter(|prevout| !prevout.script_pubkey.is_colored())
+        .map(|prevout| prevout.value)
+        .sum();
+    let total_out: u64 = tx
+        .output
+        .iter()
+        .filter(|vout| !vout.script_pubkey.is_colored())
+        .map(|vout| vout.value)
+        .sum();
     total_in - total_out
 }
 
@@ -51,4 +60,51 @@ pub fn make_fee_histogram(mut entries: Vec<&TxFeeInfo>) -> Vec<(f32, u32)> {
         histogram.push((last_fee_rate, bin_size));
     }
     histogram
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex::FromHex;
+    use std::collections::HashMap;
+    use tapyrus::{Script, Transaction, TxOut};
+
+    #[test]
+    fn test_get_tx_fee() {
+        let mut tx = Transaction {
+            version: 1,
+            lock_time: 0,
+            input: vec![],
+            output: vec![],
+        };
+        let uncolored =
+            Vec::from_hex("76a91437d8a6977e2b61459c594c8da713a2aeac7516b188ac").unwrap();
+        let colored = Vec::from_hex("21c13c630f9d53c11847a662c963dfb1e05a8630dcb901262533cb2f590c480cc734bc76a91437d8a6977e2b61459c594c8da713a2aeac7516b188ac").unwrap();
+
+        tx.output.push(TxOut {
+            value: 9500,
+            script_pubkey: Script::from(uncolored.clone()),
+        });
+        tx.output.push(TxOut {
+            value: 19000,
+            script_pubkey: Script::from(colored.clone()),
+        });
+
+        let mut prevouts: HashMap<u32, &TxOut> = HashMap::new();
+        let out1 = TxOut {
+            value: 10000,
+            script_pubkey: Script::from(uncolored.clone()),
+        };
+        let out2 = TxOut {
+            value: 20000,
+            script_pubkey: Script::from(colored.clone()),
+        };
+        prevouts.insert(0, &out1);
+        prevouts.insert(1, &out2);
+        let network: Network = Network::new("prod", 1);
+
+        let fee = get_tx_fee(&tx, &prevouts, network);
+        // 10000 - 9500 = 500
+        assert_eq!(fee, 500);
+    }
 }
