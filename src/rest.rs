@@ -4,8 +4,8 @@ use crate::errors;
 use crate::new_index::{compute_script_hash, Query, SpendingInput, Utxo};
 use crate::util::{
     create_socket, electrum_merkle, extract_tx_prevouts, full_hash, get_innerscripts,
-    get_script_asm, get_tx_fee, has_prevout, is_coinbase, script_to_address, BlockHeaderMeta,
-    BlockId, FullHash, TransactionStatus,
+    get_script_asm, get_script_type, get_tx_fee, has_prevout, is_coinbase, script_to_address,
+    BlockHeaderMeta, BlockId, FullHash, TransactionStatus,
 };
 
 use hex::{self, FromHexError};
@@ -202,34 +202,12 @@ impl TxOutValue {
     fn new(txout: &TxOut, config: &Config) -> Self {
         let value = txout.value;
 
-        let is_fee = false;
-
         let script = &txout.script_pubkey;
         let script_asm = get_script_asm(&script);
         let script_addr = script_to_address(&script, config.network);
 
         // TODO should the following something to put inside rust-elements lib?
-        let script_type = if is_fee {
-            "fee"
-        } else if script.is_empty() {
-            "empty"
-        } else if script.is_op_return() {
-            "op_return"
-        } else if script.is_p2pk() {
-            "p2pk"
-        } else if script.is_p2pkh() {
-            "p2pkh"
-        } else if script.is_p2sh() {
-            "p2sh"
-        } else if script.is_v0_p2wpkh() {
-            "v0_p2wpkh"
-        } else if script.is_v0_p2wsh() {
-            "v0_p2wsh"
-        } else if script.is_provably_unspendable() {
-            "provably_unspendable"
-        } else {
-            "unknown"
-        };
+        let script_type = get_script_type(&script);
 
         TxOutValue {
             scriptpubkey: script.clone(),
