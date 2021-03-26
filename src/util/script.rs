@@ -19,6 +19,33 @@ pub fn get_script_asm(script: &Script) -> String {
     (&asm[7..asm.len() - 1]).to_string()
 }
 
+pub fn get_script_type(script: &Script) -> String {
+    let script_type = if script.is_empty() {
+        "empty"
+    } else if script.is_op_return() {
+        "op_return"
+    } else if script.is_p2pk() {
+        "p2pk"
+    } else if script.is_p2pkh() {
+        "p2pkh"
+    } else if script.is_p2sh() {
+        "p2sh"
+    } else if script.is_v0_p2wpkh() {
+        "v0_p2wpkh"
+    } else if script.is_v0_p2wsh() {
+        "v0_p2wsh"
+    } else if script.is_provably_unspendable() {
+        "provably_unspendable"
+    } else if script.is_cp2pkh() {
+        "cp2pkh"
+    } else if script.is_cp2sh() {
+        "cp2sh"
+    } else {
+        "unknown"
+    };
+    return script_type.to_string();
+}
+
 // Returns the witnessScript in the case of p2wsh, or the redeemScript in the case of p2sh.
 pub fn get_innerscripts(txin: &TxIn, prevout: &TxOut) -> InnerScripts {
     // Wrapped redeemScript for P2SH spends
