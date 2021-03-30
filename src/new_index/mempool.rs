@@ -16,7 +16,9 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{GaugeVec, HistogramOpts, HistogramVec, MetricOpts, Metrics};
-use crate::new_index::schema::update_stats;
+use crate::new_index::color::colored_tx_history;
+use crate::new_index::color::{ColoredStats, ColoredTxHistoryInfo};
+use crate::new_index::schema::{update_colored_stats, update_stats};
 use crate::new_index::{
     compute_script_hash, schema::FullHash, ChainQuery, FundingInfo, ScriptStats, SpendingInfo,
     SpendingInput, TxHistoryInfo, Utxo,
@@ -33,7 +35,8 @@ pub struct Mempool {
     txstore: HashMap<Txid, Transaction>,
     feeinfo: HashMap<Txid, TxFeeInfo>,
     history: HashMap<FullHash, Vec<TxHistoryInfo>>, // ScriptHash -> {history_entries}
-    edges: HashMap<OutPoint, (Txid, u32)>,          // OutPoint -> (spending_txid, spending_vin)
+    colors: HashMap<ColorIdentifier, Vec<ColoredTxHistoryInfo>>,
+    edges: HashMap<OutPoint, (Txid, u32)>, // OutPoint -> (spending_txid, spending_vin)
     recent: ArrayDeque<[TxOverview; RECENT_TXS_SIZE], Wrapping>, // The N most recent txs to enter the mempool
     backlog_stats: (BacklogStats, Instant),
 
@@ -60,6 +63,7 @@ impl Mempool {
             txstore: HashMap::new(),
             feeinfo: HashMap::new(),
             history: HashMap::new(),
+            colors: HashMap::new(),
             edges: HashMap::new(),
             recent: ArrayDeque::new(),
             backlog_stats: (
@@ -189,6 +193,22 @@ impl Mempool {
 
         let (stats, _) = update_stats(HashMap::new(), &entries);
         stats
+    }
+
+    pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> Result<ColoredStats> {
+        let _timer = self
+            .latency
+            .with_label_values(&["get_colored_stats"])
+            .start_timer();
+        let histories = match self.colors.get(color_id) {
+            None => vec![],
+            Some(entries) => entries
+                .iter()
+                .map(|e| (e.clone(), None))
+                .collect::<Vec<(ColoredTxHistoryInfo, Option<BlockId>)>>(),
+        };
+        let (stats, _) = update_colored_stats(ColoredStats::new(color_id), &histories)?;
+        Ok(stats)
     }
 
     // Get all txids in the mempool
@@ -373,6 +393,13 @@ impl Mempool {
             for (i, txi) in tx.input.iter().enumerate() {
                 self.edges.insert(txi.previous_output, (txid, i as u32));
             }
+
+            for (color_id, entry) in colored_tx_history(&tx, &txos) {
+                self.colors
+                    .entry(color_id)
+                    .or_insert_with(Vec::new)
+                    .push(entry);
+            }
         }
     }
 
@@ -450,6 +477,11 @@ impl Mempool {
 
         self.edges
             .retain(|_outpoint, (txid, _vin)| !to_remove.contains(txid));
+
+        self.colors.retain(|_color_id, entries| {
+            entries.retain(|entry| !to_remove.contains(&entry.get_txid()));
+            !entries.is_empty()
+        });
     }
 }
 

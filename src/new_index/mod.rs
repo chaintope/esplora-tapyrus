@@ -1,3 +1,4 @@
+pub mod color;
 pub mod db;
 mod fetch;
 mod mempool;
