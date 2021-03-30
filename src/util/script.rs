@@ -30,10 +30,6 @@ pub fn get_script_type(script: &Script) -> String {
         "p2pkh"
     } else if script.is_p2sh() {
         "p2sh"
-    } else if script.is_v0_p2wpkh() {
-        "v0_p2wpkh"
-    } else if script.is_v0_p2wsh() {
-        "v0_p2wsh"
     } else if script.is_provably_unspendable() {
         "provably_unspendable"
     } else if script.is_cp2pkh() {
