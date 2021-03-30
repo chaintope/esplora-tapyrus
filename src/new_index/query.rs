@@ -9,12 +9,13 @@ use crate::chain::{Network, NetworkType, OutPoint, Transaction, TxOut};
 use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
+use crate::new_index::color::ColoredStats;
 use crate::new_index::schema::StatsMap;
 use crate::new_index::{ChainQuery, Mempool, SpendingInput, Utxo};
 use crate::open_assets::{compute_assets, OpenAsset};
 use crate::util::{is_spendable, BlockId, Bytes, TransactionStatus};
 
-use tapyrus::Txid;
+use tapyrus::{ColorIdentifier, Txid};
 
 const FEE_ESTIMATES_TTL: u64 = 60; // seconds
 
@@ -272,5 +273,16 @@ impl Query {
             None => {}
         });
         Ok(map)
+    }
+
+    pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> (ColoredStats, ColoredStats) {
+        (
+            self.chain
+                .get_colored_stats(color_id)
+                .expect("failed to get colored stats"),
+            self.mempool()
+                .get_colored_stats(color_id)
+                .expect("failed to get colored stats"),
+        )
     }
 }

@@ -18,6 +18,10 @@ use crate::config::Config;
 use crate::daemon::Daemon;
 use crate::errors::*;
 use crate::metrics::{HistogramOpts, HistogramTimer, HistogramVec, Metrics};
+use crate::new_index::color::{
+    index_confirmed_colored_tx, ColoredStats, ColoredStatsCacheRow, ColoredTxHistoryInfo,
+    ColoredTxHistoryRow,
+};
 use crate::open_assets::OpenAsset;
 use crate::util::{
     full_hash, has_prevout, is_spendable, script_to_address, BlockHeaderMeta, BlockId, BlockMeta,
@@ -140,6 +144,7 @@ impl ScriptStats {
 }
 
 pub type StatsMap = HashMap<ColorIdentifier, ScriptStats>;
+pub type ColoredStatsMap = HashMap<ColorIdentifier, ColoredStats>;
 
 pub struct Indexer {
     store: Arc<Store>,
@@ -432,6 +437,17 @@ impl ChainQuery {
         )
     }
 
+    pub fn colored_history_iter_scan(
+        &self,
+        color_id: &ColorIdentifier,
+        start_height: usize,
+    ) -> ScanIterator {
+        self.store.history_db.iter_scan_from(
+            &ColoredTxHistoryRow::filter(color_id),
+            &ColoredTxHistoryRow::prefix_height(color_id, start_height as u32),
+        )
+    }
+
     pub fn history(
         &self,
         scripthash: &[u8],
@@ -652,6 +668,50 @@ impl ChainQuery {
             .collect();
 
         update_stats(init_stats, &histories)
+    }
+
+    pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> Result<ColoredStats> {
+        let cache: Option<(ColoredStats, usize)> = self
+            .store
+            .cache_db
+            .get(&ColoredStatsCacheRow::key(color_id))
+            .map(|c| bincode::deserialize(&c).unwrap())
+            .and_then(|(colored_stats_cache, blockhash)| {
+                self.height_by_hash(&blockhash)
+                    .map(|height| (colored_stats_cache, height))
+            });
+
+        let (newcache, lastblock) = cache.map_or_else(
+            || self.colored_stats_delta(color_id, ColoredStats::new(color_id), 0),
+            |(oldcache, blockheight)| self.colored_stats_delta(color_id, oldcache, blockheight + 1),
+        )?;
+
+        // save updated colored stats to cache
+        if let Some(lastblock) = lastblock {
+            self.store.cache_db.write(
+                vec![ColoredStatsCacheRow::new(color_id, &newcache, &lastblock).into_row()],
+                DBFlush::Enable,
+            );
+        }
+
+        Ok(newcache)
+    }
+
+    fn colored_stats_delta(
+        &self,
+        color_id: &ColorIdentifier,
+        init_cache: ColoredStats,
+        start_height: usize,
+    ) -> Result<(ColoredStats, Option<BlockHash>)> {
+        let histories = self
+            .colored_history_iter_scan(color_id, start_height)
+            .map(ColoredTxHistoryRow::from_row)
+            .filter_map(|history| {
+                self.tx_confirming_block(&history.key.txinfo.get_txid())
+                    .map(|blockid| (history.key.txinfo, Some(blockid)))
+            })
+            .collect();
+        update_colored_stats(init_cache, &histories)
     }
 
     pub fn address_search(&self, prefix: &str, limit: usize) -> Vec<String> {
@@ -1092,6 +1152,8 @@ fn index_transaction(
         );
         rows.push(edge.into_row());
     }
+
+    index_confirmed_colored_tx(tx, confirmed_height, previous_txos_map, rows);
 }
 
 fn addr_search_row(spk: &Script, network: Network) -> Option<DBRow> {
@@ -1646,6 +1708,41 @@ fn _update_stats(stat: &mut ScriptStats, seen_txids: &mut HashSet<Txid>, entry: 
             stat.spent_txo_sum += info.value;
         }
     }
+}
+
+pub fn update_colored_stats(
+    init_cache: ColoredStats,
+    histories: &Vec<(ColoredTxHistoryInfo, Option<BlockId>)>,
+) -> Result<(ColoredStats, Option<BlockHash>)> {
+    let mut cache = init_cache;
+    let mut seen_txids = HashSet::new();
+    let mut lastblock = None;
+
+    for (history, blockid_opt) in histories {
+        if lastblock != blockid_opt.clone().map(|blockid| blockid.hash) {
+            seen_txids.clear();
+        }
+
+        if seen_txids.insert(history.get_txid()) {
+            cache.tx_count += 1;
+        }
+        match history {
+            ColoredTxHistoryInfo::Issuing(info) => {
+                cache.issued_tx_count += 1;
+                cache.issued_sum += info.value;
+            }
+            ColoredTxHistoryInfo::Transfering(info) => {
+                cache.transferred_tx_count += 1;
+                cache.transferred_sum += info.value;
+            }
+            ColoredTxHistoryInfo::Burning(info) => {
+                cache.burned_tx_count += 1;
+                cache.burned_sum += info.value;
+            }
+        }
+        lastblock = blockid_opt.clone().map(|blockid| blockid.hash);
+    }
+    Ok((cache, lastblock))
 }
 
 #[cfg(test)]
