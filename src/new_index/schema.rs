@@ -1520,7 +1520,7 @@ impl StatsCacheRow {
     pub fn prefix_color_id(scripthash: &[u8], color_id: ColorIdentifier) -> Bytes {
         bincode::options()
             .with_big_endian()
-            .serialize(&(b"A", &scripthash[..], b"C", &color_id))
+            .serialize(&(b"A", &scripthash[..], &color_id))
             .unwrap()
     }
 
