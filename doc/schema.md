@@ -58,6 +58,10 @@ colored coin's issuances results in the following new rows (`I` is for issuing):
 
  * `"C{color-id}{issuance-height}I{issuing-txid}{value}" → ""`
 
+Every transfer results in the following new row (`T` is for transferring):
+
+ * `"C{color-id}{transfer-height}T{transfering-txid}{value}" → ""`
+
 Every burn (unspendable output) results in the following new row (`B` is for burning):
 
  * `"C{color-id}{burn-height}B{burning-txid}{value}" → ""`
@@ -77,4 +81,4 @@ If the `blockhash` was since orphaned, the cache is removed and re-computed.
  * `"U{scripthash}" → "{utxo}{blockhash}"` (where `utxo` is a set of `(txid,vout)` outpoints)
 
 Stats for issued colored coins:
- * `"z{color-id}" → "{issued_stats}{blockhash}"` (where `issued_stats` is composed of `tx_count`, `issued_txo_count`, `burned_txo_count`, `issued_amount`, `burned_amount`)
+ * `"z{color-id}" → "{issued_stats}{blockhash}"` (where `issued_stats` is composed of `tx_count`, `issued_txo_count`, `transfered_txo_count`, `burned_txo_count`, `issued_amount`, `transferred_txo_amount`, `burned_amount`)
