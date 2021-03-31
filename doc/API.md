@@ -1,16 +1,6 @@
 # Esplora HTTP API
 
-JSON over RESTful HTTP. Amounts are always represented in satoshis.
-
-The blockstream.info public APIs are available at:
-- Bitcoin: https://blockstream.info/api/
-- Bitcoin Testnet: https://blockstream.info/testnet/api/
-- Liquid: https://blockstream.info/liquid/api/
-
-For example:
-```bash
-$ curl https://blockstream.info/api/blocks/tip/hash
-```
+JSON over RESTful HTTP. Amounts are always represented in tapyrus.
 
 You can also [self-host the Esplora API server](https://github.com/Blockstream/esplora#how-to-run-the-explorer-for-bitcoin-mainnet), which provides better privacy and security.
 
@@ -37,9 +27,7 @@ Returns the raw transaction in hex or as binary data.
 ### `GET /tx/:txid/merkleblock-proof`
 
 Returns a merkle inclusion proof for the transaction using
-[bitcoind's merkleblock](https://bitcoin.org/en/glossary/merkle-block) format.
-
-*Note:* This endpoint is not currently available for Liquid/Elements-based chains.
+[tapyrusd's merkleblock](https://bitcoin.org/en/glossary/merkle-block) format.
 
 ### `GET /tx/:txid/merkle-proof`
 
@@ -74,8 +62,6 @@ Get information about an address/scripthash.
 Available fields: `address`/`scripthash`, `chain_stats` and `mempool_stats`.
 
 `{chain,mempool}_stats` each contain an object with `tx_count`, `funded_txo_count`, `funded_txo_sum`, `spent_txo_count` and `spent_txo_sum`.
-
-Elements-based chains don't have the `{funded,spent}_txo_sum` fields.
 
 ### `GET /address/:address/txs`
 ### `GET /scripthash/:hash/txs`
@@ -118,8 +104,7 @@ Returns a JSON array with up to 10 results.
 
 Returns information about a block.
 
-Available fields: `id`, `height`, `version`, `timestamp`, `mediantime`, `bits`, `nonce`, `merkle_root`, `tx_count`, `size`, `weight`, `previousblockhash` and `mediantime`.
-Elements-based chains have an additional `proof` field.
+Available fields: `id`, `height`, `features`, `time`, `merkle_root`, `im_merkle_root`, `tx_count`, `size`, `weight`, `previousblockhash` `xfield_type`, `xfield` and `signature`.
 See [block format](#block-format) for more details.
 
 The response from this endpoint can be cached indefinitely.
@@ -215,7 +200,7 @@ Example output:
 
 Get the full list of txids in the mempool as an array.
 
-The order of the txids is arbitrary and does not match bitcoind's.
+The order of the txids is arbitrary and does not match tapyrusd's.
 
 ### `GET /mempool/recent`
 
@@ -321,15 +306,16 @@ The total number of results will be returned as the `x-total-results` header.
 
 - `id`
 - `height`
-- `version`
-- `timestamp`
+- `features`
+- `time`
 - `tx_count`
 - `size`
 - `weight`
 - `merkle_root`
 - `im_merkle_root`
 - `previousblockhash`
-- `mediantime` (median time-past)
 - `signature`
+- `xfield_type`
+- `xfield`
 
 
