@@ -12,6 +12,7 @@ use crate::util::{
 use hex::{self, FromHexError};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Response, Server, StatusCode};
+use tapyrus::blockdata::block::XField;
 use tapyrus::consensus::encode;
 use tapyrus::hashes::hex::{FromHex, ToHex};
 use tapyrus::hashes::Error as HashError;
@@ -45,26 +46,31 @@ const CONF_FINAL: usize = 10; // reorgs deeper than this are considered unlikely
 struct BlockValue {
     id: String,
     height: u32,
-    version: i32,
-    timestamp: u32,
+    features: i32,
+    time: u32,
     tx_count: u32,
     size: u32,
     weight: u32,
     merkle_root: String,
     im_merkle_root: String,
     previousblockhash: Option<String>,
-    mediantime: u32,
     signature: Option<String>,
+    xfield_type: u8,
+    xfield: Option<String>,
 }
 
 impl BlockValue {
     fn new(blockhm: BlockHeaderMeta, _network: Network) -> Self {
         let header = blockhm.header_entry.header();
+        let xfield = match header.xfield {
+            XField::None => None,
+            _ => Some(header.xfield.to_string()),
+        };
         BlockValue {
             id: header.block_hash().to_hex(),
             height: blockhm.header_entry.height() as u32,
-            version: header.version,
-            timestamp: header.time,
+            features: header.version,
+            time: header.time,
             tx_count: blockhm.meta.tx_count,
             size: blockhm.meta.size,
             weight: blockhm.meta.weight,
@@ -75,8 +81,9 @@ impl BlockValue {
             } else {
                 None
             },
-            mediantime: blockhm.mtp,
             signature: header.proof.map(|p| encode::serialize_hex(&p)),
+            xfield_type: header.xfield.field_type(),
+            xfield: xfield,
         }
     }
 }
