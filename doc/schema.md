@@ -54,6 +54,14 @@ Each spending input (except the coinbase) results in the following new rows (`S`
 
  * `"S{funding-txid:vout}{spending-txid:vin}" → ""`
 
+colored coin's issuances results in the following new rows (`I` is for issuing):
+
+ * `"C{color-id}{issuance-height}I{issuing-txid}{value}" → ""`
+
+Every burn (unspendable output) results in the following new row (`B` is for burning):
+
+ * `"C{color-id}{burn-height}B{burning-txid}{value}" → ""`
+
 ### `cache`
 
 Holds a cache for aggregated stats and unspent TXOs of scripthashes.
@@ -64,6 +72,9 @@ The cached data is kept next to the `blockhash` the cache is up-to-date for.
 When requesting data, the cache is updated with the new history rows added since the `blockhash`.
 If the `blockhash` was since orphaned, the cache is removed and re-computed.
 
- * `"A{scripthash}C{color_id}" → "{stats}{blockhash}"` (where `stats` is composed of `tx_count`, `funded_txo_{count,sum}` and `spent_txo_{count,sum}`)
+ * `"A{scripthash}{color_id}" → "{stats}{blockhash}"` (where `stats` is composed of `tx_count`, `funded_txo_{count,sum}` and `spent_txo_{count,sum}`)
 
  * `"U{scripthash}" → "{utxo}{blockhash}"` (where `utxo` is a set of `(txid,vout)` outpoints)
+
+Stats for issued colored coins:
+ * `"z{color-id}" → "{issued_stats}{blockhash}"` (where `issued_stats` is composed of `tx_count`, `issued_txo_count`, `burned_txo_count`, `issued_amount`, `burned_amount`)
