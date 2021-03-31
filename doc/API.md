@@ -106,8 +106,6 @@ Get the list of unspent transaction outputs associated with the address/scriptha
 
 Available fields: `txid`, `vout`, `value` and `status` (with the status of the funding tx).
 
-Elements-based chains have a `valuecommitment` field that may appear in place of `value`, plus the following additional fields: `asset`/`assetcommitment`, `nonce`/`noncecommitment`, `surjection_proof` and `range_proof`.
-
 ### `GET /address-prefix/:prefix`
 
 Search for addresses beginning with `:prefix`.
@@ -236,117 +234,57 @@ The available confirmation targets are 1-25, 144, 504 and 1008 blocks.
 
 For example: `{ "1": 87.882, "2": 87.882, "3": 87.882, "4": 87.882, "5": 81.129, "6": 68.285, ..., "144": 1.027, "504": 1.027, "1008": 1.027 }`
 
-## Assets (Elements/Liquid only)
+## Tokens
 
-### `GET /asset/:asset_id`
+### `GET /color/:color_id`
 
-Get information about an asset.
+Get information about a colored coin.
 
-For the network's native asset (i.e. L-BTC in Liquid), returns an object with:
+Returns an object with:
 
-- `asset_id`
+- `color_id`
 - `chain_stats` and `mempool_stats`, each with:
   - `tx_count`
-  - `peg_in_count`
-  - `peg_in_amount`
-  - `peg_out_amount`
-  - `peg_out_count`
+  - `issuance_count`
+  - `issued_amount`
+  - `transfer_count`
+  - `transferred_amount`
   - `burn_count`
   - `burned_amount`
 
-For user-issued assets, returns an object with:
-
-- `asset_id`
-- `issuance_txin`: the issuance transaction input
-  - `txid`
-  - `vin`
-- `issuance_prevout`: the previous output spent for the issuance
-  - `txid`
-  - `vout`
-- `status`: the confirmation status of the initial asset issuance transaction
-- `contract_hash`: the contract hash committed as the issuance entropy
-- `reissuance_token`: the asset id of the reissuance token
-- `chain_stats` and `mempool_stats`, each with:
-  - `tx_count`: the number of transactions associated with this asset (does not include confidential transactions)
-  - `issuance_count`: the number of (re)issuance transactions
-  - `issued_amount`: the total known amount issued (should be considered a minimum bound when `has_blinded_issuances` is true)
-  - `burned_amount`: the total amount provably burned
-  - `has_blinded_issuances`: whether at least one of the (re)issuances were blind
-  - `reissuance_tokens`: the number of reissuance tokens
-  - `burned_reissuance_tokens`: the number of reissuance tokens burned
-
-If the asset is available on the registry, the following fields are returned as well:
-
-- `contract`: the full json contract json committed in the issuance
-- `entity`: the entity linked to this asset. the only available type is currently `domain`, which is encoded as `{ "domain": "foobar.com>" }` (required)
-- `ticker`: a 3-5 characters ticker associated with the asset (optional)
-- `precision`: the number of decimal places for units of this asset (defaults to 0)
-- `name`: a description for the asset (up to 255 characters)
-
-Example native asset:
+Example :
 
 ```
 {
-  "asset_id": "6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d",
-  "chain_stats": {"tx_count": 54, "peg_in_count": 2, "peg_in_amount": 1600000000, "peg_out_count": 51, "peg_out_amount": 250490000, "burn_count":0, "burned_amount": 0 },
-  "mempool_stats": {"tx_count": 3, "peg_in_count": 0, "peg_in_amount": 0, "peg_out_count": 3, "peg_out_amount": 70020000, "burn_count": 0, "burned_amount": 0 }
+  "color_id": "c16f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d",
+  "chain_stats": {
+    "tx_count": 54,
+    "issuance_count": 2,
+    "issued_amount": 1600000000,
+    "transfer_count": 1,
+    "transferred_amount": 600000000,
+    "burn_count": 0,
+    "burned_amount": 0
+  },
+  "mempool_stats": {
+    "tx_count": 3,
+    "issuance_count": 0,
+    "issued_amount": 0,
+    "transfer_count": 0,
+    "transferred_amount": 0,
+    "burn_count": 1,
+    "burned_amount": 100000000
+  }
 }
 ```
 
-Example user-issued asset:
+### `GET /color/:color_id/txs`
+### `GET /color/:color_id/txs/mempool`
+### `GET /color/:color_id/txs/chain[/:last_seen]`
 
-```
-{
-  "asset_id": "d8a317ce2c14241192cbb3ebdb9696250ca1251a58ba6251c29fcfe126c9ca1f",
-  "issuance_txin":{ "txid": "39affca34bd51ed080f89f1e7a5c7a49d6d9e4779c84424ae50df67dd60dcaf7", "vin": 0},
-  "issuance_prevout": { "txid": "0cdd74c540af637d5a3874ce8500891fd8e94ec8e3d5d436d86e87b6759a7674", "vout": 0 },
-  "reissuance_token": "eb8b210d42566699796dbf78649120fd5c9d9b04cabc8f480856e04bd5e9fc22",
-  "contract_hash": "025d983cc774da665f412ccc6ccf51cb017671c2cb0d3c32d10d50ffdf0a57de",
-  "status": { "confirmed": true, "block_height": 105, "block_hash": "7bf84f2aea30b02981a220943f543a6d6e7ac646d59ef76cff27dca8d27b2b67", "block_time": 1586248729 },
-  "chain_stats": { "tx_count": 1, "issuance_count": 1, "issued_amount": 0, "burned_amount": 0, "has_blinded_issuances": true, "reissuance_tokens": 0, "burned_reissuance_tokens": 0 },
-  "mempool_stats": { "tx_count": 0, "issuance_count": 0, "issued_amount": 0, "burned_amount": 0, "has_blinded_issuances": false, "reissuance_tokens": null, "burned_reissuance_tokens": 0 }
-}
-```
+Get transactions associated with the specified color coin.
 
-### `GET /asset/:asset_id/txs`
-### `GET /asset/:asset_id/txs/mempool`
-### `GET /asset/:asset_id/txs/chain[/:last_seen]`
-
-Get transactions associated with the specified asset.
-
-For the network's native asset, returns a list of peg in, peg out and burn transactions.
-
-For user-issued assets, returns a list of issuance, reissuance and burn transactions.
-
-Does not include regular transactions transferring this asset.
-
-### `GET /asset/:asset_id/supply`
-### `GET /asset/:asset_id/supply/decimal`
-
-Get the current total supply of the specified asset.
-
-For the native asset (L-BTC), this is calculated as `{chain,mempool}_stats.peg_in_amount - {chain,mempool}_stats.peg_out_amount - {chain,mempool}_stats.burned_amount`.
-
-For issued assets, this is calculated as `{chain,mempool}_stats.issued_amount - {chain,mempool}_stats.burned_amount`.
-
-Not available for assets with blinded issuances.
-
-If `/decimal` is specified, returns the supply as a decimal according to the asset's divisibility.
-Otherwise, returned in base units.
-
-### `GET /assets/registry`
-
-Get the list of issued assets in the asset registry.
-
-Query string parameters:
-
-- `start_index`: the start index to use for paging. defaults to 0.
-- `limit`: maximum number of assets to return. defaults to 25, maximum 100.
-- `sort_field`: field to sort assets by. one of `name`, `ticker` or `domain`. defaults to `ticker`.
-- `sort_dir`: sorting direction. one of `asc` or `desc`. defaults to `asc`.
-
-Assets are returned in the same format as in `GET /asset/:asset_id`.
-
+Returns a list of issuance, reissuance, transfer and burn transactions.
 
 The total number of results will be returned as the `x-total-results` header.
 
@@ -365,35 +303,14 @@ The total number of results will be returned as the `x-total-results` header.
   - `scriptsig`
   - `scriptsig_asm`
   - `inner_redeemscript_asm`
-  - `inner_witnessscript_asm`
   - `sequence`
-  - `witness[]`
   - `prevout` (previous output in the same format as in `vout` below)
-  - *(Elements only)*
-  - `is_pegin`
-  - `issuance` (available for asset issuance transactions, `null` otherwise)
-    - `asset_id`
-    - `is_reissuance`
-    - `asset_id`
-    - `asset_blinding_nonce`
-    - `asset_entropy`
-    - `contract_hash`
-    - `assetamount` or `assetamountcommitment`
-    - `tokenamount` or `tokenamountcommitment`
 - `vout[]`
   - `scriptpubkey`
   - `scriptpubkey_asm`
   - `scriptpubkey_type`
   - `scriptpubkey_address`
   - `value`
-  - *(Elements only)*
-  - `valuecommitment`
-  - `asset` or `assetcommitment`
-  - `pegout` (available for peg-out outputs, `null` otherwise)
-    - `genesis_hash`
-    - `scriptpubkey`
-    - `scriptpubkey_asm`
-    - `scriptpubkey_address`
 - `status`
   - `confirmed` (boolean)
   - `block_height` (available for confirmed transactions, `null` otherwise)
@@ -406,18 +323,13 @@ The total number of results will be returned as the `x-total-results` header.
 - `height`
 - `version`
 - `timestamp`
-- `bits`
-- `nonce`
-- `difficulty`
-- `merkle_root`
 - `tx_count`
 - `size`
 - `weight`
+- `merkle_root`
+- `im_merkle_root`
 - `previousblockhash`
 - `mediantime` (median time-past)
-- *(Elements only)*
-- `proof`
-  - `challenge`
-  - `challenge_asm`
-  - `solution`
-  - `solution_asm`
+- `signature`
+
+
