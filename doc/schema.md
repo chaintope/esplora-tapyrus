@@ -81,4 +81,4 @@ If the `blockhash` was since orphaned, the cache is removed and re-computed.
  * `"U{scripthash}" → "{utxo}{blockhash}"` (where `utxo` is a set of `(txid,vout)` outpoints)
 
 Stats for issued colored coins:
- * `"z{color-id}" → "{issued_stats}{blockhash}"` (where `issued_stats` is composed of `tx_count`, `issued_txo_count`, `transfered_txo_count`, `burned_txo_count`, `issued_amount`, `transferred_txo_amount`, `burned_amount`)
+ * `"z{color-id}" → "{issued_stats}{blockhash}"` (where `issued_stats` is composed of `tx_count`, `issued_tx_count`, `transferred_tx_count`, `burned_tx_count`, `issued_sum`, `transferred_sum`, `burned_sum`)
