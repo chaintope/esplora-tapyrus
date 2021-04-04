@@ -1,6 +1,7 @@
 use crate::chain::{address, Network, NetworkType, OutPoint, Transaction, TxIn, TxOut};
 use crate::config::Config;
 use crate::errors;
+use crate::new_index::color::ColoredStats;
 use crate::new_index::{compute_script_hash, Query, SpendingInput, Utxo};
 use crate::util::{
     create_socket, electrum_merkle, extract_tx_prevouts, full_hash, get_innerscripts,
@@ -14,7 +15,7 @@ use hyper::{Body, Method, Response, Server, StatusCode};
 use tapyrus::consensus::encode;
 use tapyrus::hashes::hex::{FromHex, ToHex};
 use tapyrus::hashes::Error as HashError;
-use tapyrus::{BlockHash, Script, Txid};
+use tapyrus::{BlockHash, ColorIdentifier, Script, Txid};
 use tokio::sync::oneshot;
 
 use hyperlocal::UnixServerExt;
@@ -266,6 +267,33 @@ impl Default for SpendingValue {
             txid: None,
             vin: None,
             status: None,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ColoredStatsValue {
+    color_id: ColorIdentifier,
+    tx_count: usize,
+    issued_tx_count: usize,
+    transferred_tx_count: usize,
+    burned_tx_count: usize,
+    issued_sum: u64,
+    transferred_sum: u64,
+    burned_sum: u64,
+}
+
+impl From<ColoredStats> for ColoredStatsValue {
+    fn from(stats: ColoredStats) -> Self {
+        ColoredStatsValue {
+            color_id: stats.color_id,
+            tx_count: stats.tx_count,
+            issued_tx_count: stats.issued_tx_count,
+            transferred_tx_count: stats.transferred_tx_count,
+            burned_tx_count: stats.burned_tx_count,
+            issued_sum: stats.issued_sum,
+            transferred_sum: stats.transferred_sum,
+            burned_sum: stats.burned_sum,
         }
     }
 }
@@ -829,6 +857,18 @@ fn handle_request(
             let mempool = query.mempool();
             let recent = mempool.recent_txs_overview();
             json_response(recent, TTL_MEMPOOL_RECENT)
+        }
+
+        (&Method::GET, Some(&"color"), Some(color_id), None, None, None) => {
+            let color_id = ColorIdentifier::from_hex(color_id).unwrap();
+            let stats = query.get_colored_stats(&color_id);
+            json_response(
+                json!({
+                    "chain_stats": ColoredStatsValue::from(stats.0),
+                    "mempool_stats": ColoredStatsValue::from(stats.1),
+                }),
+                TTL_SHORT,
+            )
         }
 
         (&Method::GET, Some(&"fee-estimates"), None, None, None, None) => {
