@@ -230,12 +230,12 @@ Returns an object with:
 - `color_id`
 - `chain_stats` and `mempool_stats`, each with:
   - `tx_count`
-  - `issuance_count`
-  - `issued_amount`
-  - `transfer_count`
-  - `transferred_amount`
-  - `burn_count`
-  - `burned_amount`
+  - `issued_tx_count`
+  - `transferred_tx_count`
+  - `burned_tx_count`
+  - `issued_sum`
+  - `transferred_sum`
+  - `burned_sum`
 
 Example :
 
@@ -245,20 +245,20 @@ Example :
   "chain_stats": {
     "tx_count": 54,
     "issuance_count": 2,
-    "issued_amount": 1600000000,
+    "issued_sum": 1600000000,
     "transfer_count": 1,
-    "transferred_amount": 600000000,
+    "transferred_sum": 600000000,
     "burn_count": 0,
-    "burned_amount": 0
+    "burned_sum": 0
   },
   "mempool_stats": {
     "tx_count": 3,
     "issuance_count": 0,
-    "issued_amount": 0,
+    "issued_sum": 0,
     "transfer_count": 0,
-    "transferred_amount": 0,
+    "transferred_sum": 0,
     "burn_count": 1,
-    "burned_amount": 100000000
+    "burned_sum": 100000000
   }
 }
 ```
