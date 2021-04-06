@@ -1731,7 +1731,7 @@ pub fn update_colored_stats(
                 cache.issued_tx_count += 1;
                 cache.issued_sum += info.value;
             }
-            ColoredTxHistoryInfo::Transfering(info) => {
+            ColoredTxHistoryInfo::Transferring(info) => {
                 cache.transferred_tx_count += 1;
                 cache.transferred_sum += info.value;
             }

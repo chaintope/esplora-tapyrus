@@ -60,7 +60,7 @@ colored coin's issuances results in the following new rows (`I` is for issuing):
 
 Every transfer results in the following new row (`T` is for transferring):
 
- * `"C{color-id}{transfer-height}T{transfering-txid}{value}" → ""`
+ * `"C{color-id}{transfer-height}T{transferring-txid}{value}" → ""`
 
 Every burn (unspendable output) results in the following new row (`B` is for burning):
 

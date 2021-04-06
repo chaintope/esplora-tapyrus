@@ -89,7 +89,7 @@ pub fn deserialize_color_id(token_type: u8, payload: [u8; 32]) -> ColorIdentifie
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ColoredTxHistoryInfo {
     Issuing(IssuingInfo),
-    Transfering(TransferingInfo),
+    Transferring(TransferringInfo),
     Burning(BurningInfo),
 }
 
@@ -97,7 +97,7 @@ impl ColoredTxHistoryInfo {
     pub fn get_txid(&self) -> Txid {
         match self {
             ColoredTxHistoryInfo::Issuing(IssuingInfo { txid, .. })
-            | ColoredTxHistoryInfo::Transfering(TransferingInfo { txid, .. })
+            | ColoredTxHistoryInfo::Transferring(TransferringInfo { txid, .. })
             | ColoredTxHistoryInfo::Burning(BurningInfo { txid, .. }) => deserialize(txid),
         }
         .expect("cannot parse Txid")
@@ -111,7 +111,7 @@ pub struct IssuingInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct TransferingInfo {
+pub struct TransferringInfo {
     pub txid: FullHash,
     pub value: u64,
 }
@@ -191,7 +191,7 @@ impl ColoredStats {
         }
     }
 }
-// collect histories of issuring/burining colored coins in specified tx.
+// collect histories of issuing/transferring/burining colored coins in specified tx.
 pub fn index_confirmed_colored_tx(
     tx: &Transaction,
     confirmed_height: u32,
@@ -235,7 +235,7 @@ fn get_amounts(outs: &Vec<TxOut>) -> HashMap<ColorIdentifier, u64> {
     amounts
 }
 
-// Return histories of issuring/burining colored coin.
+// Return histories of issuing/transferring/burining colored coin.
 pub fn colored_tx_history(
     tx: &Transaction,
     previous_txos_map: &HashMap<OutPoint, TxOut>,
@@ -290,13 +290,13 @@ pub fn create_history_info(
             value: amount - prev_amount,
         }));
         if prev_amount > 0 {
-            histories.push(ColoredTxHistoryInfo::Transfering(TransferingInfo {
+            histories.push(ColoredTxHistoryInfo::Transferring(TransferringInfo {
                 txid,
                 value: prev_amount,
             }));
         }
     } else if amount == prev_amount {
-        histories.push(ColoredTxHistoryInfo::Transfering(TransferingInfo {
+        histories.push(ColoredTxHistoryInfo::Transferring(TransferringInfo {
             txid,
             value: amount,
         }));
@@ -306,7 +306,7 @@ pub fn create_history_info(
             value: prev_amount - amount,
         }));
         if amount > 0 {
-            histories.push(ColoredTxHistoryInfo::Transfering(TransferingInfo {
+            histories.push(ColoredTxHistoryInfo::Transferring(TransferringInfo {
                 txid,
                 value: amount,
             }));
@@ -402,7 +402,7 @@ mod tests {
         );
         assert_eq!(
             histories[1],
-            ColoredTxHistoryInfo::Transfering(TransferingInfo { txid, value: 100 })
+            ColoredTxHistoryInfo::Transferring(TransferringInfo { txid, value: 100 })
         );
 
         let histories = create_history_info(txid, 0, 300);
@@ -416,7 +416,7 @@ mod tests {
         assert_eq!(histories.len(), 1);
         assert_eq!(
             histories[0],
-            ColoredTxHistoryInfo::Transfering(TransferingInfo { txid, value: 200 })
+            ColoredTxHistoryInfo::Transferring(TransferringInfo { txid, value: 200 })
         );
 
         let histories = create_history_info(txid, 400, 300);
@@ -427,7 +427,7 @@ mod tests {
         );
         assert_eq!(
             histories[1],
-            ColoredTxHistoryInfo::Transfering(TransferingInfo { txid, value: 300 })
+            ColoredTxHistoryInfo::Transferring(TransferringInfo { txid, value: 300 })
         );
 
         let histories = create_history_info(txid, 400, 0);

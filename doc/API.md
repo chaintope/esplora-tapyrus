@@ -244,20 +244,20 @@ Example :
   "color_id": "c16f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d",
   "chain_stats": {
     "tx_count": 54,
-    "issuance_count": 2,
+    "issued_tx_count": 2,
     "issued_sum": 1600000000,
-    "transfer_count": 1,
+    "transferred_tx_count": 1,
     "transferred_sum": 600000000,
-    "burn_count": 0,
+    "burned_tx_count": 0,
     "burned_sum": 0
   },
   "mempool_stats": {
     "tx_count": 3,
-    "issuance_count": 0,
+    "issued_tx_count": 0,
     "issued_sum": 0,
-    "transfer_count": 0,
+    "transferred_tx_count": 0,
     "transferred_sum": 0,
-    "burn_count": 1,
+    "burned_tx_count": 1,
     "burned_sum": 100000000
   }
 }
