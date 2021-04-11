@@ -442,6 +442,16 @@ impl ChainQuery {
         )
     }
 
+    pub fn colored_history_iter_scan_reverse(
+        &self,
+        color_id: &ColorIdentifier
+    ) -> ReverseScanIterator {
+        self.store.history_db.iter_scan_reverse(
+            &ColoredTxHistoryRow::filter(color_id),
+            &ColoredTxHistoryRow::prefix_end(color_id),
+        )
+    }
+
     pub fn history(
         &self,
         scripthash: &[u8],
@@ -706,6 +716,31 @@ impl ChainQuery {
             })
             .collect();
         update_colored_stats(init_cache, &histories)
+    }
+
+    pub fn get_colored_txs(&self, color_id: &ColorIdentifier, last_seen_txid: Option<&Txid>, limit: usize) -> Vec<(Transaction, Option<BlockId>)> {
+        let txids = self
+            .colored_history_iter_scan_reverse(color_id)
+            .map(|row| ColoredTxHistoryRow::from_row(row).get_txid())
+            .unique()
+            .skip_while(|txid| {
+                // skip until we reach the last_seen_txid
+                last_seen_txid.map_or(false, |last_seen_txid| last_seen_txid != txid)
+            })
+            .skip(match last_seen_txid {
+                Some(_) => 1, // skip the last_seen_txid itself
+                None => 0,
+            })
+            .filter_map(|txid| self.tx_confirming_block(&txid).map(|b| (txid, b)))
+            .take(limit)
+            .collect::<Vec<(Txid, BlockId)>>();
+
+        self.lookup_txns(&txids)
+            .expect("failed looking up txs in color index")
+            .into_iter()
+            .zip(txids)
+            .map(|(tx, (_, blockid))| (tx, Some(blockid)))
+            .collect()
     }
 
     pub fn address_search(&self, prefix: &str, limit: usize) -> Vec<String> {

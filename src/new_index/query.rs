@@ -285,4 +285,11 @@ impl Query {
                 .expect("failed to get colored stats"),
         )
     }
+
+    pub fn get_colored_txs(&self, color_id: &ColorIdentifier, last_seen_txid: Option<&Txid>, limit: usize,) -> Vec<(Transaction, Option<BlockId>)> {
+        let mut txs = vec![];
+        txs.extend(self.chain().get_colored_txs(color_id, last_seen_txid, limit));
+        txs.extend(self.mempool().get_colored_txs(color_id));
+        txs
+    }
 }

@@ -211,6 +211,22 @@ impl Mempool {
         Ok(stats)
     }
 
+    pub fn get_colored_txs(&self, color_id: &ColorIdentifier) -> Vec<(Transaction, Option<BlockId>)> {
+        let _timer = self
+            .latency
+            .with_label_values(&["get_colored_txs"])
+            .start_timer();
+        let histories = match self.colors.get(color_id) {
+            None => vec![],
+            Some(entries) => entries
+                .iter()
+                .map(|info| self.txstore.get(&info.get_txid()).expect("missing mempool tx"))
+                .map(|tx| (tx.clone(), None))
+                .collect::<Vec<(Transaction, Option<BlockId>)>>(),
+        };
+        histories
+    }
+
     // Get all txids in the mempool
     pub fn txids(&self) -> Vec<&Txid> {
         let _timer = self.latency.with_label_values(&["txids"]).start_timer();

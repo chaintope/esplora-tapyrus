@@ -41,6 +41,14 @@ impl ColoredTxHistoryRow {
         bincode::serialize(&(b'C', &serialize_color_id(color_id), height)).unwrap()
     }
 
+    pub fn prefix_end(color_id: &ColorIdentifier) -> Bytes {
+        bincode::serialize(&(b'C', &serialize_color_id(color_id), std::u32::MAX)).unwrap()
+    }
+
+    pub fn get_txid(&self) -> Txid {
+        self.key.txinfo.get_txid()
+    }
+
     fn into_row(self) -> DBRow {
         DBRow {
             key: bincode::serialize(&(
