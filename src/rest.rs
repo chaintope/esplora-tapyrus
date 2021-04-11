@@ -877,6 +877,31 @@ fn handle_request(
                 TTL_SHORT,
             )
         }
+        (&Method::GET, Some(&"color"), Some(color_id), Some(&"txs"), None, None) => {
+            let color_id = ColorIdentifier::from_hex(color_id).unwrap();
+            let txs = query.get_colored_txs(&color_id, None, CHAIN_TXS_PER_PAGE);
+            json_response(
+                prepare_txs(
+                    txs,
+                    query,
+                    config,
+                ),
+                TTL_SHORT,
+            )
+        }
+        (&Method::GET, Some(&"color"), Some(color_id), Some(&"txs"), Some(&"chain"), last_seen_txid) => {
+            let color_id = ColorIdentifier::from_hex(color_id).unwrap();
+            let last_seen_txid = last_seen_txid.and_then(|txid| Txid::from_hex(txid).ok());
+            let txs = query.get_colored_txs(&color_id, last_seen_txid.as_ref(), CHAIN_TXS_PER_PAGE);
+            json_response(
+                prepare_txs(
+                    txs,
+                    query,
+                    config,
+                ),
+                TTL_SHORT,
+            )
+        }
 
         (&Method::GET, Some(&"fee-estimates"), None, None, None, None) => {
             json_response(query.estimate_fee_map(), TTL_SHORT)
