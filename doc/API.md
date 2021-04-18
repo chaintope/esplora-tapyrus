@@ -206,7 +206,7 @@ The order of the txids is arbitrary and does not match tapyrusd's.
 
 Get a list of the last 10 transactions to enter the mempool.
 
-Each transaction object contains simplified overview data, with the following fields: `txid`, `fee`, `vsize` and `value`
+Each transaction object contains simplified overview data, with the following fields: `txid`, `fee`, `vsize`, `time` and `value`
 
 ## Fee estimates
 

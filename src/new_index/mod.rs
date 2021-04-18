@@ -1,7 +1,7 @@
 pub mod color;
 pub mod db;
 mod fetch;
-mod mempool;
+pub mod mempool;
 pub mod precache;
 mod query;
 pub mod schema;

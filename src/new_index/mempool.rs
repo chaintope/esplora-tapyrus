@@ -52,7 +52,25 @@ pub struct TxOverview {
     txid: Txid,
     fee: u64,
     vsize: u32,
+    time: u32,
     value: u64,
+}
+
+// A transaction in mempool
+#[derive(Serialize, Deserialize)]
+pub struct MempoolTx {
+    size: u32,
+    fee: f32,
+    modifiedfee: f32,
+    time: u32,
+    height: u32,
+    descendantcount: u32,
+    descendantsize: u32,
+    descendantfees: u64,
+    ancestorcount: u32,
+    ancestorsize: u32,
+    ancestorfees: u64,
+    txid: Txid,
 }
 
 impl Mempool {
@@ -247,21 +265,27 @@ impl Mempool {
 
     pub fn update(&mut self, daemon: &Daemon) -> Result<()> {
         let _timer = self.latency.with_label_values(&["update"]).start_timer();
-        let new_txids = daemon
-            .getmempooltxids()
+        let txs = daemon
+            .getmempool()
             .chain_err(|| "failed to update mempool from daemon")?;
+
+        let new_txids: HashSet<Txid> = txs.keys().cloned().collect();
         let old_txids = HashSet::from_iter(self.txstore.keys().cloned());
         let to_remove: HashSet<&Txid> = old_txids.difference(&new_txids).collect();
 
         // Download and add new transactions from tapyrusd's mempool
         let txids: Vec<&Txid> = new_txids.difference(&old_txids).collect();
-        let to_add = match daemon.gettransactions(&txids) {
+        let to_add_tx = match daemon.gettransactions(&txids) {
             Ok(txs) => txs,
             Err(err) => {
                 warn!("failed to get transactions {:?}: {}", txids, err); // e.g. new block or RBF
                 return Ok(()); // keep the mempool until next update()
             }
         };
+        let to_add = to_add_tx.iter().map(|tx| {
+            let mempooltx = txs.get(&tx.malfix_txid()).expect("failed to get mempool tx");
+            (mempooltx.time, tx.clone())
+        }).collect();
         // Add new transactions
         self.add(to_add);
         // Remove missing transactions
@@ -285,13 +309,15 @@ impl Mempool {
 
     pub fn add_by_txid(&mut self, daemon: &Daemon, txid: &Txid) {
         if self.txstore.get(txid).is_none() {
-            if let Ok(tx) = daemon.getmempooltx(&txid) {
-                self.add(vec![tx])
+            if let Ok(mempooltx) = daemon.getmempooltx(&txid) {
+                if let Ok(txs) = daemon.gettransactions(&[&mempooltx.txid]) {
+                    self.add(vec![(mempooltx.time, txs.get(0).unwrap().clone())])
+                }
             }
         }
     }
 
-    fn add(&mut self, txs: Vec<Transaction>) {
+    fn add(&mut self, txs: Vec<(u32, Transaction)>) {
         self.delta
             .with_label_values(&["add"])
             .observe(txs.len() as f64);
@@ -299,10 +325,10 @@ impl Mempool {
 
         let mut txids = vec![];
         // Phase 1: add to txstore
-        for tx in txs {
+        for (_time, tx) in &txs {
             let txid = tx.malfix_txid();
             txids.push(txid);
-            self.txstore.insert(txid, tx);
+            self.txstore.insert(txid, tx.clone());
         }
         // Phase 2: index history and spend edges (can fail if some txos cannot be found)
         let txos = match self.lookup_txos(&self.get_prevouts(&txids)) {
@@ -313,7 +339,8 @@ impl Mempool {
                 return;
             }
         };
-        for txid in txids {
+        for (time, tx) in &txs {
+            let txid = tx.malfix_txid();
             let tx = self.txstore.get(&txid).expect("missing mempool tx");
             let txid_bytes = full_hash(&txid[..]);
             let prevouts = extract_tx_prevouts(&tx, &txos, false);
@@ -326,6 +353,7 @@ impl Mempool {
                 txid,
                 fee: feeinfo.fee,
                 vsize: feeinfo.vsize,
+                time: *time,
                 value: prevouts.values().map(|prevout| prevout.value).sum(),
             });
 
