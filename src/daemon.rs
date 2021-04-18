@@ -15,6 +15,7 @@ use tapyrus::{BlockHash, Txid};
 use tapyrus::consensus::encode::{deserialize, serialize};
 
 use crate::chain::{Block, BlockHeader, Network, Transaction};
+use crate::new_index::mempool::MempoolTx;
 use crate::metrics::{HistogramOpts, HistogramVec, Metrics};
 use crate::signal::Waiter;
 use crate::util::HeaderList;
@@ -499,17 +500,22 @@ impl Daemon {
         )
     }
 
-    pub fn getmempooltx(&self, txhash: &Txid) -> Result<Transaction> {
-        let value = self.request(
-            "getrawtransaction",
-            json!([txhash.to_hex(), /*verbose=*/ false]),
+    pub fn getmempooltx(&self, txhash: &Txid) -> Result<MempoolTx> {
+        let res = self.request(
+            "getmempoolentry",
+            json!(txhash.to_hex()),
         )?;
-        tx_from_value(value)
+        Ok(serde_json::from_value(res).chain_err(|| "invalid getmempoolentry reply")?)
     }
 
     pub fn getmempooltxids(&self) -> Result<HashSet<Txid>> {
         let res = self.request("getrawmempool", json!([/*verbose=*/ false]))?;
         Ok(serde_json::from_value(res).chain_err(|| "invalid getrawmempool reply")?)
+    }
+
+    pub fn getmempool(&self) -> Result<HashMap<Txid, MempoolTx>> {
+        let res = self.request("getrawmempool", json!([/*verbose=*/ true]))?;
+        Ok(serde_json::from_value(res).chain_err(|| "invalid getrawmempool (verbose) reply")?)
     }
 
     pub fn broadcast(&self, tx: &Transaction) -> Result<Txid> {
