@@ -208,6 +208,12 @@ Get a list of the last 10 transactions to enter the mempool.
 
 Each transaction object contains simplified overview data, with the following fields: `txid`, `fee`, `vsize`, `time` and `value`
 
+### `GET /mempool/txs[/:start_index]`
+
+Get a list of the transactions to enter the mempool (up to 25 transactions beginning at `start_index`).
+
+Each transaction object contains simplified overview data, with the following fields: `txid`, `fee`, `vsize`, `time` and `value`
+
 ## Fee estimates
 
 ### `GET /fee-estimates`

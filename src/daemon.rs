@@ -15,8 +15,8 @@ use tapyrus::{BlockHash, Txid};
 use tapyrus::consensus::encode::{deserialize, serialize};
 
 use crate::chain::{Block, BlockHeader, Network, Transaction};
-use crate::new_index::mempool::MempoolTx;
 use crate::metrics::{HistogramOpts, HistogramVec, Metrics};
+use crate::new_index::mempool::MempoolTx;
 use crate::signal::Waiter;
 use crate::util::HeaderList;
 
@@ -501,10 +501,7 @@ impl Daemon {
     }
 
     pub fn getmempooltx(&self, txhash: &Txid) -> Result<MempoolTx> {
-        let res = self.request(
-            "getmempoolentry",
-            json!(txhash.to_hex()),
-        )?;
+        let res = self.request("getmempoolentry", json!(txhash.to_hex()))?;
         Ok(serde_json::from_value(res).chain_err(|| "invalid getmempoolentry reply")?)
     }
 

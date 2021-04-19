@@ -444,7 +444,7 @@ impl ChainQuery {
 
     pub fn colored_history_iter_scan_reverse(
         &self,
-        color_id: &ColorIdentifier
+        color_id: &ColorIdentifier,
     ) -> ReverseScanIterator {
         self.store.history_db.iter_scan_reverse(
             &ColoredTxHistoryRow::filter(color_id),
@@ -718,7 +718,12 @@ impl ChainQuery {
         update_colored_stats(init_cache, &histories)
     }
 
-    pub fn get_colored_txs(&self, color_id: &ColorIdentifier, last_seen_txid: Option<&Txid>, limit: usize) -> Vec<(Transaction, Option<BlockId>)> {
+    pub fn get_colored_txs(
+        &self,
+        color_id: &ColorIdentifier,
+        last_seen_txid: Option<&Txid>,
+        limit: usize,
+    ) -> Vec<(Transaction, Option<BlockId>)> {
         let txids = self
             .colored_history_iter_scan_reverse(color_id)
             .map(|row| ColoredTxHistoryRow::from_row(row).get_txid())
