@@ -2,6 +2,7 @@ use crate::chain::{address, Network, NetworkType, OutPoint, Transaction, TxIn, T
 use crate::config::Config;
 use crate::errors;
 use crate::new_index::color::ColoredStats;
+use crate::new_index::mempool::TxOverview;
 use crate::new_index::{compute_script_hash, Query, SpendingInput, Utxo};
 use crate::util::{
     create_socket, electrum_merkle, extract_tx_prevouts, full_hash, get_innerscripts,
@@ -34,6 +35,7 @@ use url::form_urlencoded;
 
 const CHAIN_TXS_PER_PAGE: usize = 25;
 const MAX_MEMPOOL_TXS: usize = 50;
+const MEMPOOL_TXS_PER_PAGE: usize = 25;
 const BLOCK_LIMIT: usize = 10;
 const ADDRESS_SEARCH_LIMIT: usize = 10;
 
@@ -865,6 +867,45 @@ fn handle_request(
             let recent = mempool.recent_txs_overview();
             json_response(recent, TTL_MEMPOOL_RECENT)
         }
+        (&Method::GET, Some(&"mempool"), Some(&"txs"), None, None, None) => {
+            let mempool = query.mempool();
+            let txs = mempool.txs_overview();
+            let total_num = txs.len();
+            let txs: Vec<&TxOverview> = txs.into_iter().take(MEMPOOL_TXS_PER_PAGE).collect();
+            let value = serde_json::to_string(&txs)?;
+            Ok(Response::builder()
+                .header("Content-Type", "application/json")
+                .header(
+                    "Cache-Control",
+                    format!("public, max-age={:}", TTL_MEMPOOL_RECENT),
+                )
+                .header("X-Total-Results", total_num.to_string())
+                .body(Body::from(value))
+                .unwrap())
+        }
+        (&Method::GET, Some(&"mempool"), Some(&"txs"), start_index, None, None) => {
+            let mempool = query.mempool();
+            let start_index = start_index
+                .map_or(0u32, |el| el.parse().unwrap_or(0))
+                .max(0u32) as usize;
+            let txs = mempool.txs_overview();
+            let total_num = txs.len();
+            let txs: Vec<&TxOverview> = txs
+                .into_iter()
+                .skip(start_index)
+                .take(MEMPOOL_TXS_PER_PAGE)
+                .collect();
+            let value = serde_json::to_string(&txs)?;
+            Ok(Response::builder()
+                .header("Content-Type", "application/json")
+                .header(
+                    "Cache-Control",
+                    format!("public, max-age={:}", TTL_MEMPOOL_RECENT),
+                )
+                .header("X-Total-Results", total_num.to_string())
+                .body(Body::from(value))
+                .unwrap())
+        }
 
         (&Method::GET, Some(&"color"), Some(color_id), None, None, None) => {
             let color_id = ColorIdentifier::from_hex(color_id).unwrap();
@@ -880,27 +921,20 @@ fn handle_request(
         (&Method::GET, Some(&"color"), Some(color_id), Some(&"txs"), None, None) => {
             let color_id = ColorIdentifier::from_hex(color_id).unwrap();
             let txs = query.get_colored_txs(&color_id, None, CHAIN_TXS_PER_PAGE);
-            json_response(
-                prepare_txs(
-                    txs,
-                    query,
-                    config,
-                ),
-                TTL_SHORT,
-            )
+            json_response(prepare_txs(txs, query, config), TTL_SHORT)
         }
-        (&Method::GET, Some(&"color"), Some(color_id), Some(&"txs"), Some(&"chain"), last_seen_txid) => {
+        (
+            &Method::GET,
+            Some(&"color"),
+            Some(color_id),
+            Some(&"txs"),
+            Some(&"chain"),
+            last_seen_txid,
+        ) => {
             let color_id = ColorIdentifier::from_hex(color_id).unwrap();
             let last_seen_txid = last_seen_txid.and_then(|txid| Txid::from_hex(txid).ok());
             let txs = query.get_colored_txs(&color_id, last_seen_txid.as_ref(), CHAIN_TXS_PER_PAGE);
-            json_response(
-                prepare_txs(
-                    txs,
-                    query,
-                    config,
-                ),
-                TTL_SHORT,
-            )
+            json_response(prepare_txs(txs, query, config), TTL_SHORT)
         }
 
         (&Method::GET, Some(&"fee-estimates"), None, None, None, None) => {

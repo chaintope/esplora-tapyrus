@@ -38,6 +38,7 @@ pub struct Mempool {
     colors: HashMap<ColorIdentifier, Vec<ColoredTxHistoryInfo>>,
     edges: HashMap<OutPoint, (Txid, u32)>, // OutPoint -> (spending_txid, spending_vin)
     recent: ArrayDeque<[TxOverview; RECENT_TXS_SIZE], Wrapping>, // The N most recent txs to enter the mempool
+    overviews: HashMap<Txid, TxOverview>,
     backlog_stats: (BacklogStats, Instant),
 
     // monitoring
@@ -84,6 +85,7 @@ impl Mempool {
             colors: HashMap::new(),
             edges: HashMap::new(),
             recent: ArrayDeque::new(),
+            overviews: HashMap::new(),
             backlog_stats: (
                 BacklogStats::default(),
                 Instant::now() - Duration::from_secs(BACKLOG_STATS_TTL),
@@ -229,7 +231,10 @@ impl Mempool {
         Ok(stats)
     }
 
-    pub fn get_colored_txs(&self, color_id: &ColorIdentifier) -> Vec<(Transaction, Option<BlockId>)> {
+    pub fn get_colored_txs(
+        &self,
+        color_id: &ColorIdentifier,
+    ) -> Vec<(Transaction, Option<BlockId>)> {
         let _timer = self
             .latency
             .with_label_values(&["get_colored_txs"])
@@ -238,7 +243,11 @@ impl Mempool {
             None => vec![],
             Some(entries) => entries
                 .iter()
-                .map(|info| self.txstore.get(&info.get_txid()).expect("missing mempool tx"))
+                .map(|info| {
+                    self.txstore
+                        .get(&info.get_txid())
+                        .expect("missing mempool tx")
+                })
                 .map(|tx| (tx.clone(), None))
                 .collect::<Vec<(Transaction, Option<BlockId>)>>(),
         };
@@ -257,6 +266,12 @@ impl Mempool {
         // It may contain outdated txs that are no longer in the mempool,
         // until they get pushed out by newer transactions.
         self.recent.iter().collect()
+    }
+
+    pub fn txs_overview(&self) -> Vec<&TxOverview> {
+        let mut txs: Vec<&TxOverview> = self.overviews.values().collect();
+        txs.sort_by(|a, b| b.time.cmp(&a.time));
+        txs
     }
 
     pub fn backlog_stats(&self) -> &BacklogStats {
@@ -282,10 +297,15 @@ impl Mempool {
                 return Ok(()); // keep the mempool until next update()
             }
         };
-        let to_add = to_add_tx.iter().map(|tx| {
-            let mempooltx = txs.get(&tx.malfix_txid()).expect("failed to get mempool tx");
-            (mempooltx.time, tx.clone())
-        }).collect();
+        let to_add = to_add_tx
+            .iter()
+            .map(|tx| {
+                let mempooltx = txs
+                    .get(&tx.malfix_txid())
+                    .expect("failed to get mempool tx");
+                (mempooltx.time, tx.clone())
+            })
+            .collect();
         // Add new transactions
         self.add(to_add);
         // Remove missing transactions
@@ -356,6 +376,17 @@ impl Mempool {
                 time: *time,
                 value: prevouts.values().map(|prevout| prevout.value).sum(),
             });
+
+            self.overviews.insert(
+                txid,
+                TxOverview {
+                    txid,
+                    fee: feeinfo.fee,
+                    vsize: feeinfo.vsize,
+                    time: *time,
+                    value: prevouts.values().map(|prevout| prevout.value).sum(),
+                },
+            );
 
             self.feeinfo.insert(txid, feeinfo);
 
@@ -506,6 +537,11 @@ impl Mempool {
             self.txstore
                 .remove(*txid)
                 .unwrap_or_else(|| panic!("missing mempool tx {}", txid));
+
+            self.overviews.remove(*txid).or_else(|| {
+                warn!("missing mempool tx overviews {}", txid);
+                None
+            });
 
             self.feeinfo.remove(*txid).or_else(|| {
                 warn!("missing mempool tx feeinfo {}", txid);
