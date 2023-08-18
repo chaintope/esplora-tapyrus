@@ -20,10 +20,9 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --release
       - name: Run tests
         run: cargo test --verbose
-      - name: Install
-        run: cargo install --path .
