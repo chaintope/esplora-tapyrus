@@ -37,6 +37,9 @@ Each output results in the following new row:
 
  * `"O{txid}{vout}" → "{scriptpubkey}{value}"`
 
+If transaction output include colored coins, it results in the following new row:
+ * `c{color_id}` -> ""`
+
 When the indexer is synced up to the tip of the chain, the hash of the tip is saved as following:
 
  * `"t" →  "{blockhash}"`

@@ -173,7 +173,7 @@ impl ColoredStatsCacheRow {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ColoredStats {
     pub color_id: ColorIdentifier,
     pub tx_count: usize,
