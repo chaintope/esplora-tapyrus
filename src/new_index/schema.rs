@@ -31,6 +31,8 @@ use crate::util::{
 use crate::new_index::db::{DBFlush, DBRow, ReverseScanIterator, ScanIterator, DB};
 use crate::new_index::fetch::{start_fetcher, BlockEntry, FetchFrom};
 
+use super::color::{deserialize_color_id, serialize_color_id};
+
 const MIN_HISTORY_ITEMS_TO_CACHE: usize = 100;
 
 pub struct Store {
@@ -674,6 +676,30 @@ impl ChainQuery {
         update_stats(init_stats, &histories)
     }
 
+    pub fn get_colors(&self, last_seen_color_id: Option<ColorIdentifier>, limit: usize) -> Result<Vec<ColorIdentifier>> {
+        let colors: Vec<ColorIdentifier> = self
+            .store
+            .txstore_db()
+            .iter_scan(&ColorIdRow::prefix())
+            .map(|row|{
+                ColorIdRow::from_row(row)
+            })
+            .map(|row| {
+                row.key.color_id
+            })
+            .skip_while(|color_id| {
+                // skip until we reach the last_seen_color_id
+                last_seen_color_id.clone().map_or(false, |last_seen_color_id| last_seen_color_id != color_id.clone())
+            })
+            .skip(match last_seen_color_id {
+                Some(_) => 1, // skip the last_seen_color_id itself
+                None => 0,
+            })
+            .take(limit)
+            .collect();
+        Ok(colors)
+    }
+
     pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> Result<ColoredStats> {
         let cache: Option<(ColoredStats, usize)> = self
             .store
@@ -1018,6 +1044,10 @@ fn add_transaction(
         if is_spendable(txo) {
             rows.push(TxOutRow::new(&txid, txo_index, txo).into_row());
         }
+
+        if let Some((color_id, _)) = txo.script_pubkey.split_color() {
+            rows.push(ColorIdRow::new(&color_id).into_row())
+        }
     }
 }
 
@@ -1329,6 +1359,48 @@ impl TxOutRow {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+struct ColorIdKey {
+    code: u8,
+    color_id: ColorIdentifier,
+}
+struct ColorIdRow {
+    key: ColorIdKey,
+}
+
+impl ColorIdRow {
+    fn new(color_id: &ColorIdentifier) -> ColorIdRow {
+        ColorIdRow {
+            key: ColorIdKey {
+                code: b'c',
+                color_id: color_id.clone()
+            }
+        }
+    }
+
+    fn prefix() -> Bytes {
+        b"c".to_vec()
+    }
+
+    fn into_row(self) -> DBRow {
+        DBRow {
+            key: bincode::serialize(&(b'c', &serialize_color_id(&self.key.color_id))).unwrap(),
+            value: vec![],
+        }
+    }
+    fn from_row(row: DBRow) -> Self {
+        let (_prefix, token_type, payload): (u8, u8, [u8; 32]) =
+            bincode::deserialize(&row.key).expect("failed to deserialize ColorIdRow");
+        ColorIdRow {
+            key: ColorIdKey {
+                code: b'c',
+                color_id: deserialize_color_id(token_type, payload),
+            }
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 struct BlockKey {
