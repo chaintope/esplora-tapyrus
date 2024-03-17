@@ -229,9 +229,9 @@ For example: `{ "1": 87.882, "2": 87.882, "3": 87.882, "4": 87.882, "5": 81.129,
 
 ### `GET /colors[/:last_seen_color_id]`
 
-Returns a list of the 25 `color_id`s
+Returns a list of the 25 (`color_id`, `block_height`) pairs
 
-if `last_seen_color_id` specified, returns a list of the next 25 `color_id`s after specified `last_seen_color_id`
+if `last_seen_color_id` specified, returns a list of the next 25 pairs after specified `last_seen_color_id`
 
 
 ### `GET /color/:color_id`
