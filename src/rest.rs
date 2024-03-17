@@ -912,7 +912,7 @@ fn handle_request(
             let color_id: Option<ColorIdentifier> = last_seen_color_id.map_or(None,|hex| {
                 ColorIdentifier::from_hex(hex).ok()
             });
-            let colors: Vec<ColorIdentifier> = query.get_colors(color_id, COLOR_IDS_PER_PAGE);
+            let colors: Vec<(ColorIdentifier, u32)> = query.get_colors(color_id, COLOR_IDS_PER_PAGE);
             json_response(colors, TTL_SHORT)
         }
 

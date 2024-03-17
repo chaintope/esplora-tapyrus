@@ -37,9 +37,6 @@ Each output results in the following new row:
 
  * `"O{txid}{vout}" → "{scriptpubkey}{value}"`
 
-If transaction output include colored coins, it results in the following new row:
- * `c{color_id}` -> ""`
-
 When the indexer is synced up to the tip of the chain, the hash of the tip is saved as following:
 
  * `"t" →  "{blockhash}"`
@@ -56,6 +53,9 @@ Each spending input (except the coinbase) results in the following new rows (`S`
  * `"H{funding-scripthash}{spending-height}S{spending-txid:vin}{funding-txid:vout}{value}" → ""`
 
  * `"S{funding-txid:vout}{spending-txid:vin}" → ""`
+
+If transaction output include colored coins, it results in the following new row:
+ * `"B{block-height}c{color-id}" → ""` (block_height is latest block height which colored coin used)
 
 colored coin's issuances results in the following new rows (`I` is for issuing):
 
