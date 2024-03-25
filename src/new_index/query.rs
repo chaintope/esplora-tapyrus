@@ -275,6 +275,23 @@ impl Query {
         Ok(map)
     }
 
+    pub fn get_colors(&self, last_seen_color_id: Option<ColorIdentifier>, limit: usize) -> Vec<(ColorIdentifier, u32)> {
+        let (block_height, color_id) = if let Some(color_id) = last_seen_color_id {
+            match self.chain.get_height_by_color_id(&color_id) {
+                Some(height) => (height, Some(color_id)),
+                _ => (self.daemon.getblockchaininfo().ok().unwrap().blocks, None),
+            }
+        } else {
+            (self.daemon.getblockchaininfo().ok().unwrap().blocks, None)
+        };
+
+        let colors = self
+            .chain
+            .get_colors(block_height, &color_id, limit)
+            .expect("failed to get colors");
+        colors
+    }
+
     pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> (ColoredStats, ColoredStats) {
         (
             self.chain

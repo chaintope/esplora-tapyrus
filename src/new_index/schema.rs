@@ -31,6 +31,8 @@ use crate::util::{
 use crate::new_index::db::{DBFlush, DBRow, ReverseScanIterator, ScanIterator, DB};
 use crate::new_index::fetch::{start_fetcher, BlockEntry, FetchFrom};
 
+use super::color::{deserialize_color_id, serialize_color_id};
+
 const MIN_HISTORY_ITEMS_TO_CACHE: usize = 100;
 
 pub struct Store {
@@ -672,6 +674,29 @@ impl ChainQuery {
             .collect();
 
         update_stats(init_stats, &histories)
+    }
+
+    pub fn get_colors(&self, block_height: u32, last_seen_color_id: &Option<ColorIdentifier>, limit: usize) -> Result<Vec<(ColorIdentifier, u32)>> {
+        let colors = self.store.history_db().iter_scan_reverse(
+                &ColorIdRow::prefix(),
+                &ColorIdRow::filter_end(block_height, last_seen_color_id)
+            ).filter_map(|row|{
+                let row = ColorIdRow::from_row(row);
+                let result = self.get_height_by_color_id(&row.key.color_id);
+                // Ignore color_id, block_height pair if the block_height is not the latest
+                match result {
+                    Some(block_height) if (block_height <= row.key.block_height) => Some((row.key.color_id, row.key.block_height)),
+                    _ => None,
+                }
+            })
+            .skip(1) // Ignore the first element, which is the last_seen_color_id itself
+            .take(limit)
+            .collect::<Vec<_>>();
+        Ok(colors)
+    }
+
+    pub fn get_height_by_color_id(&self, color_id: &ColorIdentifier) -> Option<u32> {
+        self.colored_history_iter_scan_reverse(color_id).map(|c| ColoredTxHistoryRow::from_row(c).key.confirmed_height).next()
     }
 
     pub fn get_colored_stats(&self, color_id: &ColorIdentifier) -> Result<ColoredStats> {
@@ -1329,6 +1354,63 @@ impl TxOutRow {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct ColorIdKey {
+    block_height: u32,// MUST be serialized as big-endian.
+    color_id: ColorIdentifier,
+}
+// keys is "B{block-height}c{color-id}" (block_height is latest block height which colored coin used)
+// value is "" 
+pub struct ColorIdRow {
+    key: ColorIdKey,
+}
+
+impl ColorIdRow {
+    pub fn new(block_height: u32, color_id: &ColorIdentifier) -> ColorIdRow {
+        ColorIdRow {
+            key: ColorIdKey {
+                block_height: block_height,
+                color_id: color_id.clone()
+            }
+        }
+    }
+
+    fn prefix() -> Bytes {
+        bincode::serialize(&(b'B'))
+            .unwrap()
+    }
+
+    fn filter_end(block_height: u32, color_id: &Option<ColorIdentifier>) -> Bytes {
+        let filter = if let Some(color_id) = color_id {
+            bincode::serialize(&(b'B', block_height.to_be_bytes(), b'c', &serialize_color_id(&color_id)))
+            .unwrap()
+        } else {
+            bincode::serialize(&(b'B', (block_height + 1).to_be_bytes(), b'c'))
+            .unwrap()
+        };
+        filter
+    }
+
+    pub fn into_row(self) -> DBRow {
+        DBRow {
+            key: bincode::serialize(&(b'B', self.key.block_height.to_be_bytes(), b'c', &serialize_color_id(&self.key.color_id))).unwrap(),
+            value: vec![],
+        }
+    }
+
+    pub fn from_row(row: DBRow) -> Self {
+        let (_prefix, block_height, _prefix2, token_type, payload): (u8, [u8; 4]    , u8, u8, [u8; 32]) =
+            bincode::deserialize(&row.key).expect("failed to deserialize ColorIdRow");
+        ColorIdRow {
+            key: ColorIdKey {
+                block_height: u32::from_be_bytes(block_height),
+                color_id: deserialize_color_id(token_type, payload),
+            }
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 struct BlockKey {

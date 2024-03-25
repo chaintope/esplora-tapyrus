@@ -38,6 +38,7 @@ const MAX_MEMPOOL_TXS: usize = 50;
 const MEMPOOL_TXS_PER_PAGE: usize = 25;
 const BLOCK_LIMIT: usize = 10;
 const ADDRESS_SEARCH_LIMIT: usize = 10;
+const COLOR_IDS_PER_PAGE: usize = 25;
 
 const TTL_LONG: u32 = 157_784_630; // ttl for static resources (5 years)
 const TTL_SHORT: u32 = 10; // ttl for volatie resources
@@ -905,6 +906,24 @@ fn handle_request(
                 .header("X-Total-Results", total_num.to_string())
                 .body(Body::from(value))
                 .unwrap())
+        }
+
+        (&Method::GET, Some(&"colors"), last_seen_color_id, None, None, None) => {
+            let color_id: Option<ColorIdentifier> = last_seen_color_id.map_or(None,|hex| {
+                ColorIdentifier::from_hex(hex).ok()
+            });
+            let colors: Vec<(ColorIdentifier, u32)> = query.get_colors(color_id, COLOR_IDS_PER_PAGE);
+            info!("colors: {:?}", colors);
+            let values: Vec<_> = colors.into_iter().map(|(color_id, height)| {
+                let stats = query.get_colored_stats(&color_id);
+                json!({
+                    "color_id": color_id,
+                    "height": height,
+                    "chain_stats": ColoredStatsValue::from(stats.0),
+                    "mempool_stats": ColoredStatsValue::from(stats.1)
+                })
+            }).collect();
+            json_response(values, TTL_SHORT)
         }
 
         (&Method::GET, Some(&"color"), Some(color_id), None, None, None) => {

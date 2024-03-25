@@ -54,6 +54,9 @@ Each spending input (except the coinbase) results in the following new rows (`S`
 
  * `"S{funding-txid:vout}{spending-txid:vin}" → ""`
 
+If transaction output include colored coins, it results in the following new row:
+ * `"B{block-height}c{color-id}" → ""` (block_height is latest block height which colored coin used)
+
 colored coin's issuances results in the following new rows (`I` is for issuing):
 
  * `"C{color-id}{issuance-height}I{issuing-txid}{value}" → ""`
