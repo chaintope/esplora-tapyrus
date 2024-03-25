@@ -913,7 +913,17 @@ fn handle_request(
                 ColorIdentifier::from_hex(hex).ok()
             });
             let colors: Vec<(ColorIdentifier, u32)> = query.get_colors(color_id, COLOR_IDS_PER_PAGE);
-            json_response(colors, TTL_SHORT)
+            info!("colors: {:?}", colors);
+            let values: Vec<_> = colors.into_iter().map(|(color_id, height)| {
+                let stats = query.get_colored_stats(&color_id);
+                json!({
+                    "color_id": color_id,
+                    "height": height,
+                    "chain_stats": ColoredStatsValue::from(stats.0),
+                    "mempool_stats": ColoredStatsValue::from(stats.1)
+                })
+            }).collect();
+            json_response(values, TTL_SHORT)
         }
 
         (&Method::GET, Some(&"color"), Some(color_id), None, None, None) => {
