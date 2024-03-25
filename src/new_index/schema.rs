@@ -1383,10 +1383,10 @@ impl ColorIdRow {
 
     fn filter_end(block_height: u32, color_id: &Option<ColorIdentifier>) -> Bytes {
         let filter = if let Some(color_id) = color_id {
-            bincode::serialize(&(b'B', block_height, b'c', &serialize_color_id(&color_id)))
+            bincode::serialize(&(b'B', block_height.to_be_bytes(), b'c', &serialize_color_id(&color_id)))
             .unwrap()
         } else {
-            bincode::serialize(&(b'B', block_height + 1, b'c'))
+            bincode::serialize(&(b'B', (block_height + 1).to_be_bytes(), b'c'))
             .unwrap()
         };
         filter
@@ -1394,17 +1394,17 @@ impl ColorIdRow {
 
     pub fn into_row(self) -> DBRow {
         DBRow {
-            key: bincode::serialize(&(b'B', self.key.block_height, b'c', &serialize_color_id(&self.key.color_id))).unwrap(),
+            key: bincode::serialize(&(b'B', self.key.block_height.to_be_bytes(), b'c', &serialize_color_id(&self.key.color_id))).unwrap(),
             value: vec![],
         }
     }
 
     pub fn from_row(row: DBRow) -> Self {
-        let (_prefix, block_height, _prefix2, token_type, payload): (u8, u32, u8, u8, [u8; 32]) =
+        let (_prefix, block_height, _prefix2, token_type, payload): (u8, [u8; 4]    , u8, u8, [u8; 32]) =
             bincode::deserialize(&row.key).expect("failed to deserialize ColorIdRow");
         ColorIdRow {
             key: ColorIdKey {
-                block_height: block_height,
+                block_height: u32::from_be_bytes(block_height),
                 color_id: deserialize_color_id(token_type, payload),
             }
         }

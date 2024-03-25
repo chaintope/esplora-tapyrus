@@ -40,11 +40,11 @@ impl ColoredTxHistoryRow {
     }
 
     pub fn prefix_height(color_id: &ColorIdentifier, height: u32) -> Bytes {
-        bincode::serialize(&(b'C', &serialize_color_id(color_id), height)).unwrap()
+        bincode::serialize(&(b'C', &serialize_color_id(color_id), height.to_be_bytes())).unwrap()
     }
 
     pub fn prefix_end(color_id: &ColorIdentifier) -> Bytes {
-        bincode::serialize(&(b'C', &serialize_color_id(color_id), std::u32::MAX)).unwrap()
+        bincode::serialize(&(b'C', &serialize_color_id(color_id), std::u32::MAX.to_be_bytes())).unwrap()
     }
 
     pub fn get_txid(&self) -> Txid {
@@ -56,7 +56,7 @@ impl ColoredTxHistoryRow {
             key: bincode::serialize(&(
                 b'C',
                 &serialize_color_id(&self.key.color_id),
-                self.key.confirmed_height,
+                self.key.confirmed_height.to_be_bytes(),
                 self.key.txinfo,
             ))
             .unwrap(),
@@ -69,13 +69,13 @@ impl ColoredTxHistoryRow {
             u8,
             u8,
             [u8; 32],
-            u32,
+            [u8; 4],
             ColoredTxHistoryInfo,
         ) = bincode::deserialize(&row.key).unwrap();
         ColoredTxHistoryRow {
             key: ColoredTxHistoryKey {
                 color_id: deserialize_color_id(token_type, payload),
-                confirmed_height,
+                confirmed_height: u32::from_be_bytes(confirmed_height),
                 txinfo,
             },
         }
@@ -535,40 +535,40 @@ mod tests {
         // field               | size | value                                                                 |
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'B'(0x42)                                                             |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // code                |    1 | 'c'(0x63)                                                             |
         // color_id            |   33 | c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e    |
-        assert_eq!(hex, "420a00000063c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e");
+        assert_eq!(hex, "420000000a63c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e");
 
         let row1 = rows.get(1).unwrap();
         let hex = hex::encode::<Vec<u8>>(row1.key.iter().cloned().collect());
         // field               | size | value                                                                 |
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'B'(0x42)                                                             |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // code                |    1 | 'c'(0x63)                                                             |
         // color_id            |   33 | c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e    |
-        assert_eq!(hex, "420a00000063c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e");
+        assert_eq!(hex, "420000000a63c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e");
 
         let row2 = rows.get(2).unwrap();
         let hex = hex::encode::<Vec<u8>>(row2.key.iter().cloned().collect());
         // field               | size | value                                                                 |
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'B'(0x42)                                                             |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // code                |    1 | 'c'(0x63)                                                             |
         // color_id            |   33 | c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050    |
-        assert_eq!(hex, "420a00000063c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050");
+        assert_eq!(hex, "420000000a63c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050");
 
         let row3 = rows.get(3).unwrap();
         let hex = hex::encode::<Vec<u8>>(row3.key.iter().cloned().collect());
         // field               | size | value                                                                 |
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'B'(0x42)                                                             |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // code                |    1 | 'c'(0x63)                                                             |
         // color_id            |   33 | c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050    |
-        assert_eq!(hex, "420a00000063c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050");
+        assert_eq!(hex, "420000000a63c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050");
 
         let row4 = rows.get(4).unwrap();
         let hex = hex::encode::<Vec<u8>>(row4.key.iter().cloned().collect());
@@ -576,11 +576,11 @@ mod tests {
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'C'(0x43)                                                             |
         // color_id            |   33 | c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e    |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // Issue/Transfer/Burn |    4 | 'Transfer'(0x010000000)                                               |
         // txid                |   32 | 59abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c      |
-        // value               |    8 | 100(0x64)                                                             |
-        assert_eq!(hex, "43c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e0a0000000100000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
+        // value               |    8 | 100(0x6400000000000000)                                               |
+        assert_eq!(hex, "43c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e0000000a0100000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
 
         let row5 = rows.get(5).unwrap();
         let hex = hex::encode::<Vec<u8>>(row5.key.iter().cloned().collect());
@@ -588,11 +588,11 @@ mod tests {
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'C'(0x43)                                                             |
         // color_id            |   33 | c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e    |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // Issue/Transfer/Burn |    4 | 'Burn'(0x02000000)                                                    |
         // txid                |   32 | 59abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c      |
-        // value               |    8 | 100(0x64)                                                             |
-        assert_eq!(hex, "43c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e0a0000000200000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
+        // value               |    8 | 100(0x6400000000000000)                                               |
+        assert_eq!(hex, "43c12dceb0cedd7c372c838fea8d46ae863a3c47b2ad0fb950e90ac9d531583ad35e0000000a0200000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
 
         let row6 = rows.get(6).unwrap();
         let hex = hex::encode::<Vec<u8>>(row6.key.iter().cloned().collect());
@@ -600,11 +600,11 @@ mod tests {
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'C'(0x43)                                                             |
         // color_id            |   33 | c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050    |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // Issue/Transfer/Burn |    4 | 'Issue'(0x00000000)                                                   |
         // txid                |   32 | 59abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c      |
-        // value               |    8 | 100(0x64)                                                             |
-        assert_eq!(hex, "43c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf110500a0000000000000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
+        // value               |    8 | 100(0x6400000000000000)                                               |
+        assert_eq!(hex, "43c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf110500000000a0000000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c6400000000000000");
 
         let row7 = rows.get(7).unwrap();
         let hex = hex::encode::<Vec<u8>>(row7.key.iter().cloned().collect());
@@ -612,10 +612,10 @@ mod tests {
         //---------------------|------|-----------------------------------------------------------------------|
         // prefix              |    1 | 'C'(0x43)                                                             |
         // color_id            |   33 | c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf11050    |
-        // height              |    4 | 10(0x0a000000)                                                        |
+        // height              |    4 | 10(0x0000000a) (big endian)                                           |
         // Issue/Transfer/Burn |    4 | 'Transfer'(0x01000000)                                                |
         // txid                |   32 | 59abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1c      |
-        // value               |    8 | 200(0xc8)                                                             |
-        assert_eq!(hex, "43c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf110500a0000000100000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1cc800000000000000");
+        // value               |    8 | 200(0xc800000000000000)                                               |
+        assert_eq!(hex, "43c271c99cc3bc21757feed5b712744ebb0f770d5c41d99189f9457495747bf110500000000a0100000059abe954f5636c86484e5e2817d29b915e7f9a9f0294e87c438fd060694a8b1cc800000000000000");
     }
 }
