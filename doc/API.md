@@ -229,9 +229,19 @@ For example: `{ "1": 87.882, "2": 87.882, "3": 87.882, "4": 87.882, "5": 81.129,
 
 ### `GET /colors[/:last_seen_color_id]`
 
-Returns a list of the 25 (`color_id`, `block_height`) pairs
+Returns a list of the 25 objects with:
+- `color_id`
+- `block_height`
+- `chain_stats` and `mempool_stats`, each contains an object with:
+  - `tx_count`
+  - `issued_tx_count`
+  - `transferred_tx_count`
+  - `burned_tx_count`
+  - `issued_sum`
+  - `transferred_sum`
+  - `burned_sum`
 
-if `last_seen_color_id` specified, returns a list of the next 25 pairs after specified `last_seen_color_id`
+if `last_seen_color_id` specified, returns a list of the next 25 objects after specified `last_seen_color_id`
 
 
 ### `GET /color/:color_id`
