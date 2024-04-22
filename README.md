@@ -1,6 +1,4 @@
-[![Status](https://travis-ci.org/chaintope/esplora-tapyrus.png?branch=master)](https://travis-ci.org/chaintope/esplora-tapyrus)
-
-# Esplora - Electrs backend API
+# Esplora - Electrs backend API [![Build Status](https://github.com/chaintope/esplora-tapyrus/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/chaintope/esplora-tapyrus/actions/workflows/rust.yml)
 
 This is forked from [Blockstream/electrs](https://github.com/Blockstream/electrs). So, features and
 specifications are almost same with original. You can find documents for extended specification for
