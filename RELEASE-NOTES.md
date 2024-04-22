@@ -1,3 +1,7 @@
+# 0.5.0 (27 Jan 2023)
+
+* This is the first release for esplora-tapyrus. This is modified to work with [Tapyrus Core](https://github.com/chaintope/tapyrus-core) from [the original esplora](https://github.com/Blockstream/esplora). The information for points where the modification are found in https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus .
+
 # 0.4.1 (14 Oct 2018)
 
 * Don't run full compaction after initial import is over (when using JSONRPC)
