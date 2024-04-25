@@ -1,6 +1,6 @@
 [package]
 name = "esplora-tapyrus"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Chaintope Inc.", "Roman Zeyde (original author) <me@romanzey.de>"]
 description = "An efficient re-implementation of Electrum Server in Rust"
 license = "MIT"

@@ -1,3 +1,7 @@
+# 0.5.1 (26 Apr 2024)
+
+* Implement new REST API `GET /colors`
+
 # 0.5.0 (27 Jan 2023)
 
 * This is the first release for esplora-tapyrus. This is modified to work with [Tapyrus Core](https://github.com/chaintope/tapyrus-core) from [the original esplora](https://github.com/Blockstream/esplora). The information for points where the modification are found in https://github.com/chaintope/tapyrus-core/tree/master/doc/tapyrus .
