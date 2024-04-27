@@ -1,0 +1,27 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  upload-binary:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          target: ${{ matrix.target }}
+          bin: electrs
+          archive: esplora-tapyrus-$tag-${{ matrix.target }}
+          include: LICENSE,README.md,RELEASE-NOTES.md
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
