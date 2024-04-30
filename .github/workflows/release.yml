@@ -22,6 +22,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           bin: electrs
+          leading-dir: true
           archive: esplora-tapyrus-$tag-${{ matrix.target }}
           include: LICENSE,README.md,RELEASE-NOTES.md
           token: ${{ secrets.MY_GITHUB_TOKEN }}
