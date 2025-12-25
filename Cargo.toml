@@ -50,7 +50,7 @@ tiny_http = "0.8.0"
 url = "2.2.0"
 hyper = "0.14"
 hyperlocal = "0.8"
-tokio = { version = "=1.37", features = ["sync", "macros"] }
+tokio = { version = "=1.38", features = ["sync", "macros"] }
 
 [dependencies.tapyrus]
 version = "^0.4.4"
