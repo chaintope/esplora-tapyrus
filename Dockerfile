@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y \
     git \
     protobuf-compiler \
     m4 \
+    libclang-dev \
+    librocksdb-dev \
+    libgmp-dev \
+    libmpfr-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
