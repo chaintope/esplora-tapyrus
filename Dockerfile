@@ -1,9 +1,13 @@
-FROM rust:1.71.0-slim-buster as builder
+FROM rust:1.71.0-slim-bookworm AS builder
 
-RUN apt-get update
-RUN apt-get install -y clang cmake
-RUN apt-get install -y libsnappy-dev git protobuf-compiler
-RUN apt-get install -y m4
+RUN apt-get update && apt-get install -y \
+    clang \
+    cmake \
+    libsnappy-dev \
+    git \
+    protobuf-compiler \
+    m4 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -14,7 +18,7 @@ RUN mkdir -p src && echo 'fn main() {}' > src/main.rs && cargo build --release
 COPY src src
 RUN CARGO_BUILD_INCREMENTAL=true cargo build --release
 
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 
 COPY --from=builder /app/target/release/electrs /bin/electrs
 
