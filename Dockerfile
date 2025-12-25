@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     m4 \
     libclang-dev \
-    librocksdb-dev \
     libgmp-dev \
     libmpfr-dev \
     && rm -rf /var/lib/apt/lists/*
