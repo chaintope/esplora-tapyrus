@@ -5,8 +5,7 @@ use std::sync::mpsc::{Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use crypto::digest::Digest;
-use crypto::sha2::Sha256;
+use sha2::{Digest, Sha256};
 use error_chain::ChainedError;
 use hex;
 use serde_json::{from_str, Value};
@@ -96,9 +95,9 @@ fn get_status_hash(txs: Vec<(Txid, Option<BlockId>)>, query: &Query) -> Option<F
                 .unwrap_or(false);
             let height = get_electrum_height(blockid, has_unconfirmed_parents);
             let part = format!("{}:{}:", txid, height);
-            sha2.input(part.as_bytes());
+            sha2.update(part.as_bytes());
         }
-        sha2.result(&mut hash);
+        hash.copy_from_slice(&sha2.finalize());
         Some(hash)
     }
 }

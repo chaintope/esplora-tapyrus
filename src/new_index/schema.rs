@@ -1,6 +1,5 @@
 use bincode::config::Options;
-use crypto::digest::Digest;
-use crypto::sha2::Sha256;
+use sha2::{Digest, Sha256};
 use itertools::Itertools;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -420,13 +419,13 @@ impl ChainQuery {
         })
     }
 
-    pub fn history_iter_scan(&self, code: u8, hash: &[u8], start_height: usize) -> ScanIterator {
+    pub fn history_iter_scan(&self, code: u8, hash: &[u8], start_height: usize) -> ScanIterator<'_> {
         self.store.history_db.iter_scan_from(
             &TxHistoryRow::filter(code, &hash[..]),
             &TxHistoryRow::prefix_height(code, &hash[..], start_height as u32),
         )
     }
-    fn history_iter_scan_reverse(&self, code: u8, hash: &[u8]) -> ReverseScanIterator {
+    fn history_iter_scan_reverse(&self, code: u8, hash: &[u8]) -> ReverseScanIterator<'_> {
         self.store.history_db.iter_scan_reverse(
             &TxHistoryRow::filter(code, &hash[..]),
             &TxHistoryRow::prefix_end(code, &hash[..]),
@@ -437,7 +436,7 @@ impl ChainQuery {
         &self,
         color_id: &ColorIdentifier,
         start_height: usize,
-    ) -> ScanIterator {
+    ) -> ScanIterator<'_> {
         self.store.history_db.iter_scan_from(
             &ColoredTxHistoryRow::filter(color_id),
             &ColoredTxHistoryRow::prefix_height(color_id, start_height as u32),
@@ -447,7 +446,7 @@ impl ChainQuery {
     pub fn colored_history_iter_scan_reverse(
         &self,
         color_id: &ColorIdentifier,
-    ) -> ReverseScanIterator {
+    ) -> ReverseScanIterator<'_> {
         self.store.history_db.iter_scan_reverse(
             &ColoredTxHistoryRow::filter(color_id),
             &ColoredTxHistoryRow::prefix_end(color_id),
@@ -605,7 +604,7 @@ impl ChainQuery {
         &self,
         scripthash: &[u8],
         start_color_id: ColorIdentifier,
-    ) -> ScanIterator {
+    ) -> ScanIterator<'_> {
         self.store.cache_db.iter_scan_from(
             &StatsCacheRow::key(scripthash),
             &StatsCacheRow::prefix_color_id(scripthash, start_color_id),
@@ -1232,8 +1231,8 @@ pub type FullHash = [u8; 32]; // serialized SHA256 result
 pub fn compute_script_hash(script: &Script) -> FullHash {
     let mut hash = FullHash::default();
     let mut sha2 = Sha256::new();
-    sha2.input(script.as_bytes());
-    sha2.result(&mut hash);
+    sha2.update(script.as_bytes());
+    hash.copy_from_slice(&sha2.finalize());
     hash
 }
 
