@@ -1,4 +1,4 @@
-FROM rust:1.71.0-slim-bookworm AS builder
+FROM rust:1.85-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y \
     clang \
