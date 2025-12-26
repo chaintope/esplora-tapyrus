@@ -22,6 +22,7 @@ pub struct ColoredTxHistoryRow {
 }
 
 impl ColoredTxHistoryRow {
+    #[cfg(test)]
     fn new(
         color_id: &ColorIdentifier,
         confirmed_height: u32,
