@@ -1,3 +1,24 @@
+# 0.5.3 (25 Jan 2026)
+* Added color_id field to UTXO API response (GET /address/:address/utxo and GET /scripthash/:hash/utxo)
+
+# 0.5.2 (26 Dec 2025)
+* Removed oldcpu feature for RocksDB (no longer needed with RocksDB 0.22.0)
+* Added GitHub Actions workflow for Docker image build and publish to DockerHub
+* Updated Rust version from 1.71 to 1.85
+* Updated Debian base image from Buster to Bookworm
+* Updated dependencies to fix security vulnerabilities:
+* Replaced rust-crypto with sha2 (RUSTSEC-2022-0011)
+* Updated crossbeam-channel to 0.5.15 (RUSTSEC-2025-0024)
+* Updated url to 2.5.7 (fixes idna RUSTSEC-2024-0421)
+* Updated prometheus to 0.14 (fixes protobuf RUSTSEC-2024-0437)
+* Updated tokio to 1.49.0
+* Updated openassets-tapyrus to 0.3.0
+* Updated tapyrus to 0.5.0
+* Updated tiny_http to 0.12
+* Added libgmp-dev and libmpfr-dev to Dockerfile to speed up build
+* Updated GitHub Actions checkout/cache to v4
+* Fixed compiler warnings for lifetime syntax
+
 # 0.5.1 (26 Apr 2024)
 
 * Implement new REST API `GET /colors`
