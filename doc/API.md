@@ -90,7 +90,7 @@ Returns up to 50 transactions (no paging).
 
 Get the list of unspent transaction outputs associated with the address/scripthash.
 
-Available fields: `txid`, `vout`, `value` and `status` (with the status of the funding tx).
+Available fields: `txid`, `vout`, `value`, `status` (with the status of the funding tx) and `color_id`.
 
 ### `GET /address-prefix/:prefix`
 
