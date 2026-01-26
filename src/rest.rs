@@ -235,8 +235,8 @@ struct UtxoValue {
     txid: Txid,
     vout: u32,
     status: TransactionStatus,
-
     value: u64,
+    color_id: ColorIdentifier,
 }
 impl From<Utxo> for UtxoValue {
     fn from(utxo: Utxo) -> Self {
@@ -244,8 +244,8 @@ impl From<Utxo> for UtxoValue {
             txid: utxo.txid,
             vout: utxo.vout,
             status: TransactionStatus::from(utxo.confirmed),
-
             value: utxo.value,
+            color_id: utxo.color_id,
         }
     }
 }
