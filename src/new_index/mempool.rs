@@ -391,24 +391,46 @@ impl Mempool {
             self.feeinfo.insert(txid, feeinfo);
 
             // An iterator over (ScriptHash, TxHistoryInfo)
-            let spending = prevouts.into_iter().map(|(input_index, prevout)| {
+            let spending = prevouts.into_iter().flat_map(|(input_index, prevout)| {
                 let txi = tx.input.get(input_index as usize).unwrap();
-                let color_id = prevout
-                    .script_pubkey
-                    .split_color()
-                    .map(|(color_id, _)| color_id)
-                    .unwrap_or(ColorIdentifier::default());
-                (
-                    compute_script_hash(&prevout.script_pubkey),
-                    TxHistoryInfo::Spending(SpendingInfo {
-                        txid: txid_bytes,
-                        vin: input_index as u16,
-                        prev_txid: full_hash(&txi.previous_output.txid[..]),
-                        prev_vout: txi.previous_output.vout as u16,
-                        color_id: color_id,
-                        value: prevout.value,
-                    }),
-                )
+                if let Some((color_id, script)) = prevout.script_pubkey.split_color() {
+                    vec![
+                        (
+                            compute_script_hash(&prevout.script_pubkey),
+                            TxHistoryInfo::Spending(SpendingInfo {
+                                txid: txid_bytes,
+                                vin: input_index as u16,
+                                prev_txid: full_hash(&txi.previous_output.txid[..]),
+                                prev_vout: txi.previous_output.vout as u16,
+                                color_id: color_id.clone(),
+                                value: prevout.value,
+                            }),
+                        ),
+                        (
+                            compute_script_hash(&script),
+                            TxHistoryInfo::Spending(SpendingInfo {
+                                txid: txid_bytes,
+                                vin: input_index as u16,
+                                prev_txid: full_hash(&txi.previous_output.txid[..]),
+                                prev_vout: txi.previous_output.vout as u16,
+                                color_id: color_id.clone(),
+                                value: prevout.value,
+                            }),
+                        ),
+                    ]
+                } else {
+                    vec![(
+                        compute_script_hash(&prevout.script_pubkey),
+                        TxHistoryInfo::Spending(SpendingInfo {
+                            txid: txid_bytes,
+                            vin: input_index as u16,
+                            prev_txid: full_hash(&txi.previous_output.txid[..]),
+                            prev_vout: txi.previous_output.vout as u16,
+                            color_id: ColorIdentifier::default(),
+                            value: prevout.value,
+                        }),
+                    )]
+                }
             });
 
             let config = &self.config;
