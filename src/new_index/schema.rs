@@ -1182,25 +1182,48 @@ fn index_transaction(
             .get(&txi.previous_output)
             .unwrap_or_else(|| panic!("missing previous txo {}", txi.previous_output));
 
-        let color_id = prev_txo
-            .script_pubkey
-            .split_color()
-            .map(|(color_id, _)| color_id)
-            .unwrap_or(ColorIdentifier::default());
-
-        let history = TxHistoryRow::new(
-            &prev_txo.script_pubkey,
-            confirmed_height,
-            TxHistoryInfo::Spending(SpendingInfo {
-                txid,
-                vin: txi_index as u16,
-                prev_txid: full_hash(&txi.previous_output.txid[..]),
-                prev_vout: txi.previous_output.vout as u16,
-                color_id: color_id,
-                value: prev_txo.value,
-            }),
-        );
-        rows.push(history.into_row());
+        if let Some((color_id, script)) = prev_txo.script_pubkey.split_color() {
+            let history = TxHistoryRow::new(
+                &prev_txo.script_pubkey,
+                confirmed_height,
+                TxHistoryInfo::Spending(SpendingInfo {
+                    txid,
+                    vin: txi_index as u16,
+                    prev_txid: full_hash(&txi.previous_output.txid[..]),
+                    prev_vout: txi.previous_output.vout as u16,
+                    color_id: color_id.clone(),
+                    value: prev_txo.value,
+                }),
+            );
+            rows.push(history.into_row());
+            let history = TxHistoryRow::new(
+                &script,
+                confirmed_height,
+                TxHistoryInfo::Spending(SpendingInfo {
+                    txid,
+                    vin: txi_index as u16,
+                    prev_txid: full_hash(&txi.previous_output.txid[..]),
+                    prev_vout: txi.previous_output.vout as u16,
+                    color_id: color_id.clone(),
+                    value: prev_txo.value,
+                }),
+            );
+            rows.push(history.into_row());
+        } else {
+            let history = TxHistoryRow::new(
+                &prev_txo.script_pubkey,
+                confirmed_height,
+                TxHistoryInfo::Spending(SpendingInfo {
+                    txid,
+                    vin: txi_index as u16,
+                    prev_txid: full_hash(&txi.previous_output.txid[..]),
+                    prev_vout: txi.previous_output.vout as u16,
+                    color_id: ColorIdentifier::default(),
+                    value: prev_txo.value,
+                }),
+            );
+            rows.push(history.into_row());
+        }
 
         let edge = TxEdgeRow::new(
             full_hash(&txi.previous_output.txid[..]),
@@ -1864,6 +1887,7 @@ pub fn update_colored_stats(
 mod tests {
 
     use super::*;
+    use tapyrus::{TxIn, TxOut};
 
     #[test]
     fn test_update_stats_for_chain() {
@@ -2040,5 +2064,220 @@ mod tests {
         assert_eq!(stat.spent_txo_count, 0);
         assert_eq!(stat.spent_txo_sum, 0);
         assert_eq!(latestblock, None);
+    }
+
+    fn hex_script(hex: &str) -> Script {
+        Script::from(hex::decode(hex).unwrap())
+    }
+
+    /// Test that colored coin spending is correctly tracked for both colored and base scripts.
+    /// This ensures that when searching by base address (without color prefix),
+    /// the spending transaction is properly recorded.
+    #[test]
+    fn test_colored_spending_tracked_for_base_script() {
+        let txid1 = hex::decode("0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap();
+        let txid2 = hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+            .unwrap();
+
+        // Create a base script (P2PKH-like)
+        let base_script = hex_script("76a914000000000000000000000000000000000000000088ac");
+
+        // Create a color_id from the base script
+        let color_id = ColorIdentifier::reissuable(base_script.clone());
+
+        // Create a colored script (color_id + base_script)
+        let colored_script = base_script.add_color(color_id.clone()).unwrap();
+
+        // Compute script hashes
+        let colored_hash = compute_script_hash(&colored_script);
+        let base_hash = compute_script_hash(&base_script);
+
+        // Verify the hashes are different
+        assert_ne!(colored_hash, base_hash, "colored and base script hashes should differ");
+
+        // Simulate funding: both colored and base script hashes get funding entries
+        // (this is how the current implementation works)
+        let funding_colored = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&txid1),
+                vout: 0,
+                color_id: color_id.clone(),
+                value: 1000,
+                open_asset: None,
+            }),
+            None,
+        );
+        let funding_base = (
+            TxHistoryInfo::Funding(FundingInfo {
+                txid: full_hash(&txid1),
+                vout: 0,
+                color_id: color_id.clone(),
+                value: 1000,
+                open_asset: None,
+            }),
+            None,
+        );
+
+        // Simulate spending: BOTH colored and base script hashes should get spending entries
+        // This is the fix - previously only colored script hash got the spending entry
+        let spending_colored = (
+            TxHistoryInfo::Spending(SpendingInfo {
+                txid: full_hash(&txid2),
+                vin: 0,
+                prev_txid: full_hash(&txid1),
+                prev_vout: 0,
+                color_id: color_id.clone(),
+                value: 1000,
+            }),
+            None,
+        );
+        let spending_base = (
+            TxHistoryInfo::Spending(SpendingInfo {
+                txid: full_hash(&txid2),
+                vin: 0,
+                prev_txid: full_hash(&txid1),
+                prev_vout: 0,
+                color_id: color_id.clone(),
+                value: 1000,
+            }),
+            None,
+        );
+
+        // Test stats for colored script hash
+        let colored_stats = StatsMap::new();
+        let (colored_result, _) = update_stats(colored_stats, &vec![funding_colored, spending_colored]);
+        let stat = colored_result.get(&color_id).unwrap();
+        assert_eq!(stat.tx_count, 2, "colored script: should have 2 transactions");
+        assert_eq!(stat.funded_txo_count, 1, "colored script: should have 1 funded txo");
+        assert_eq!(stat.spent_txo_count, 1, "colored script: should have 1 spent txo");
+
+        // Test stats for base script hash
+        // This is the critical test - base script should also see the spending
+        let base_stats = StatsMap::new();
+        let (base_result, _) = update_stats(base_stats, &vec![funding_base, spending_base]);
+        let stat = base_result.get(&color_id).unwrap();
+        assert_eq!(stat.tx_count, 2, "base script: should have 2 transactions");
+        assert_eq!(stat.funded_txo_count, 1, "base script: should have 1 funded txo");
+        assert_eq!(stat.spent_txo_count, 1, "base script: should have 1 spent txo (this was the bug)");
+    }
+
+    /// Test that index_transaction generates spending history entries for both
+    /// the colored script hash and the base script hash.
+    #[test]
+    fn test_index_transaction_colored_spending_generates_two_history_rows() {
+        use crate::chain::Network;
+
+        let prev_txid_bytes = hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
+            .unwrap();
+        let prev_txid: Txid = deserialize(&prev_txid_bytes).unwrap();
+
+        // Create a base script (P2PKH-like)
+        let base_script = hex_script("76a914000000000000000000000000000000000000000088ac");
+
+        // Create a color_id from the base script
+        let color_id = ColorIdentifier::reissuable(base_script.clone());
+
+        // Create the colored script
+        let colored_script = base_script.add_color(color_id.clone()).unwrap();
+
+        // Create a spending transaction
+        let spending_tx = Transaction {
+            version: 1,
+            lock_time: 0,
+            input: vec![TxIn {
+                previous_output: tapyrus::OutPoint::new(prev_txid, 0),
+                script_sig: Script::new(),
+                sequence: 0xffffffff,
+                witness: vec![],
+            }],
+            output: vec![TxOut {
+                value: 900,
+                script_pubkey: base_script.clone(), // spending to base script (uncolored)
+            }],
+        };
+
+        // Create the previous txos map with the colored output being spent
+        let mut previous_txos_map: HashMap<OutPoint, TxOut> = HashMap::new();
+        previous_txos_map.insert(
+            OutPoint::new(prev_txid, 0),
+            TxOut {
+                value: 1000,
+                script_pubkey: colored_script.clone(),
+            },
+        );
+
+        // Create iconfig
+        let iconfig = IndexerConfig {
+            light_mode: false,
+            address_search: false,
+            index_unspendables: false,
+            network: Network::new("dev", 1),
+        };
+
+        // Call index_transaction
+        let mut rows: Vec<DBRow> = Vec::new();
+        index_transaction(&spending_tx, 100, &previous_txos_map, &mut rows, &iconfig);
+
+        // Count history rows (code 'H') that are spending entries
+        // We need to check if there are 2 spending history entries
+        let spending_history_count = rows
+            .iter()
+            .filter(|row| {
+                // History rows start with 'H'
+                if row.key.first() != Some(&b'H') {
+                    return false;
+                }
+                // Try to deserialize and check if it's a Spending entry
+                if let Ok(key) = bincode::options()
+                    .with_big_endian()
+                    .deserialize::<TxHistoryKey>(&row.key)
+                {
+                    matches!(key.txinfo, TxHistoryInfo::Spending(_))
+                } else {
+                    false
+                }
+            })
+            .count();
+
+        // Should have 2 spending history entries: one for colored script, one for base script
+        assert_eq!(
+            spending_history_count, 2,
+            "index_transaction should generate 2 spending history entries for colored coin: \
+             one for colored script hash and one for base script hash"
+        );
+
+        // Also verify the script hashes are different
+        let colored_hash = compute_script_hash(&colored_script);
+        let base_hash = compute_script_hash(&base_script);
+        assert_ne!(colored_hash, base_hash);
+
+        // Verify both script hashes are present in the generated rows
+        let script_hashes_in_rows: Vec<FullHash> = rows
+            .iter()
+            .filter_map(|row| {
+                if row.key.first() != Some(&b'H') {
+                    return None;
+                }
+                if let Ok(key) = bincode::options()
+                    .with_big_endian()
+                    .deserialize::<TxHistoryKey>(&row.key)
+                {
+                    if matches!(key.txinfo, TxHistoryInfo::Spending(_)) {
+                        return Some(key.hash);
+                    }
+                }
+                None
+            })
+            .collect();
+
+        assert!(
+            script_hashes_in_rows.contains(&colored_hash),
+            "should have spending entry for colored script hash"
+        );
+        assert!(
+            script_hashes_in_rows.contains(&base_hash),
+            "should have spending entry for base script hash"
+        );
     }
 }
