@@ -1,3 +1,7 @@
+# 0.5.4 (4 Feb 2026)
+* Remove unused dependencies
+* Fix colored coin spending history not indexed for base script
+
 # 0.5.3 (25 Jan 2026)
 * Added color_id field to UTXO API response (GET /address/:address/utxo and GET /scripthash/:hash/utxo)
 
