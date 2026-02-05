@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{Arg, ArgAction, Command, value_parser};
 use dirs::home_dir;
 use std::fs;
 use std::net::SocketAddr;
@@ -57,148 +57,142 @@ impl Config {
             NetworkType::names().join(", ")
         );
 
-        let args = App::new("Electrum Rust Server")
-            .version(crate_version!())
+        let args = Command::new("Electrum Rust Server")
+            .version(env!("CARGO_PKG_VERSION"))
             .arg(
-                Arg::with_name("verbosity")
-                    .short("v")
-                    .multiple(true)
+                Arg::new("verbosity")
+                    .short('v')
+                    .action(ArgAction::Count)
                     .help("Increase logging verbosity"),
             )
             .arg(
-                Arg::with_name("timestamp")
+                Arg::new("timestamp")
                     .long("timestamp")
+                    .action(ArgAction::SetTrue)
                     .help("Prepend log lines with a timestamp"),
             )
             .arg(
-                Arg::with_name("db_dir")
+                Arg::new("db_dir")
                     .long("db-dir")
-                    .help("Directory to store index database (default: ./db/)")
-                    .takes_value(true),
+                    .help("Directory to store index database (default: ./db/)"),
             )
             .arg(
-                Arg::with_name("daemon_dir")
+                Arg::new("daemon_dir")
                     .long("daemon-dir")
-                    .help("Data directory of Tapyrusd (default: ~/.tapyrus/prod-1)")
-                    .takes_value(true),
+                    .help("Data directory of Tapyrusd (default: ~/.tapyrus/prod-1)"),
             )
             .arg(
-                Arg::with_name("blocks_dir")
+                Arg::new("blocks_dir")
                     .long("blocks-dir")
-                    .help("Analogous to tapyrusd's -blocksdir option, this specifies the directory containing the raw blocks files (blk*.dat) (default: ~/.tapyrus/prod-1/blocks/)")
-                    .takes_value(true),
+                    .help("Analogous to tapyrusd's -blocksdir option, this specifies the directory containing the raw blocks files (blk*.dat) (default: ~/.tapyrus/prod-1/blocks/)"),
             )
             .arg(
-                Arg::with_name("cookie")
+                Arg::new("cookie")
                     .long("cookie")
-                    .help("JSONRPC authentication cookie ('USER:PASSWORD', default: read from ~/.tapyrus/prod-1/.cookie)")
-                    .takes_value(true),
+                    .help("JSONRPC authentication cookie ('USER:PASSWORD', default: read from ~/.tapyrus/prod-1/.cookie)"),
             )
             .arg(
-                Arg::with_name("network")
+                Arg::new("network")
                     .long("network")
-                    .help(&network_help)
-                    .takes_value(true),
+                    .help(network_help),
             )
             .arg(
-                Arg::with_name("electrum_rpc_addr")
+                Arg::new("electrum_rpc_addr")
                     .long("electrum-rpc-addr")
-                    .help("Electrum server JSONRPC 'addr:port' to listen on (default: '127.0.0.1:50001' for prod and '127.0.0.1:60001' for dev)")
-                    .takes_value(true),
+                    .help("Electrum server JSONRPC 'addr:port' to listen on (default: '127.0.0.1:50001' for prod and '127.0.0.1:60001' for dev)"),
             )
             .arg(
-                Arg::with_name("network_id")
+                Arg::new("network_id")
                     .long("network-id")
-                    .help("Select tapyrus network id (default: 1)")
-                    .takes_value(true),
+                    .help("Select tapyrus network id (default: 1)"),
             )
             .arg(
-                Arg::with_name("http_addr")
+                Arg::new("http_addr")
                     .long("http-addr")
-                    .help("HTTP server 'addr:port' to listen on (default: '127.0.0.1:3000' for prod, and '127.0.0.1:3002' for dev)")
-                    .takes_value(true),
+                    .help("HTTP server 'addr:port' to listen on (default: '127.0.0.1:3000' for prod, and '127.0.0.1:3002' for dev)"),
             )
             .arg(
-                Arg::with_name("daemon_rpc_addr")
+                Arg::new("daemon_rpc_addr")
                     .long("daemon-rpc-addr")
-                    .help("Tapyrus daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:2377 for prod and 127.0.0.1:12381 for dev)")
-                    .takes_value(true),
+                    .help("Tapyrus daemon JSONRPC 'addr:port' to connect (default: 127.0.0.1:2377 for prod and 127.0.0.1:12381 for dev)"),
             )
             .arg(
-                Arg::with_name("monitoring_addr")
+                Arg::new("monitoring_addr")
                     .long("monitoring-addr")
-                    .help("Prometheus monitoring 'addr:port' to listen on (default: 127.0.0.1:4224 for prod and 127.0.0.1:24224 for dev)")
-                    .takes_value(true),
+                    .help("Prometheus monitoring 'addr:port' to listen on (default: 127.0.0.1:4224 for prod and 127.0.0.1:24224 for dev)"),
             )
             .arg(
-                Arg::with_name("jsonrpc_import")
+                Arg::new("jsonrpc_import")
                     .long("jsonrpc-import")
+                    .action(ArgAction::SetTrue)
                     .help("Use JSONRPC instead of directly importing blk*.dat files. Useful for remote full node or low memory system"),
             )
             .arg(
-                Arg::with_name("light_mode")
+                Arg::new("light_mode")
                     .long("lightmode")
+                    .action(ArgAction::SetTrue)
                     .help("Enable light mode for reduced storage")
             )
             .arg(
-                Arg::with_name("address_search")
+                Arg::new("address_search")
                     .long("address-search")
+                    .action(ArgAction::SetTrue)
                     .help("Enable prefix address search")
             )
             .arg(
-                Arg::with_name("index_unspendables")
+                Arg::new("index_unspendables")
                     .long("index-unspendables")
+                    .action(ArgAction::SetTrue)
                     .help("Enable indexing of provably unspendable outputs")
             )
             .arg(
-                Arg::with_name("cors")
+                Arg::new("cors")
                     .long("cors")
                     .help("Origins allowed to make cross-site requests")
-                    .takes_value(true)
             )
             .arg(
-                Arg::with_name("precache_scripts")
+                Arg::new("precache_scripts")
                     .long("precache-scripts")
                     .help("Path to file with list of scripts to pre-cache")
-                    .takes_value(true)
             )
             .arg(
-                Arg::with_name("utxos_limit")
+                Arg::new("utxos_limit")
                     .long("utxos-limit")
                     .help("Maximum number of utxos to process per address. Lookups for addresses with more utxos will fail. Applies to the Electrum and HTTP APIs.")
                     .default_value("500")
+                    .value_parser(value_parser!(usize))
             )
             .arg(
-                Arg::with_name("electrum_txs_limit")
+                Arg::new("electrum_txs_limit")
                     .long("electrum-txs-limit")
                     .help("Maximum number of transactions returned by Electrum history queries. Lookups with more results will fail.")
                     .default_value("500")
+                    .value_parser(value_parser!(usize))
             ).arg(
-                Arg::with_name("electrum_banner")
+                Arg::new("electrum_banner")
                     .long("electrum-banner")
                     .help("Welcome banner for the Electrum server, shown in the console to clients.")
-                    .takes_value(true)
             ).arg(
-                Arg::with_name("enable_open_assets")
+                Arg::new("enable_open_assets")
                     .long("enable-open-assets")
+                    .action(ArgAction::SetTrue)
                     .help("Enable open assets feature")
             );
 
         #[cfg(unix)]
         let args = args.arg(
-                Arg::with_name("http_socket_file")
+                Arg::new("http_socket_file")
                     .long("http-socket-file")
-                    .help("HTTP server 'unix socket file' to listen on (default disabled, enabling this disables the http server)")
-                    .takes_value(true),
+                    .help("HTTP server 'unix socket file' to listen on (default disabled, enabling this disables the http server)"),
             );
 
         let m = args.get_matches();
 
-        let network_name = m.value_of("network").unwrap_or("prod");
-        let network_id = u32::from_str(m.value_of("network_id").unwrap_or("1"))
+        let network_name = m.get_one::<String>("network").map(|s| s.as_str()).unwrap_or("prod");
+        let network_id = u32::from_str(m.get_one::<String>("network_id").map(|s| s.as_str()).unwrap_or("1"))
             .expect("failed to get network id");
         let network = Network::new(network_name, network_id);
-        let db_dir = Path::new(m.value_of("db_dir").unwrap_or("./db"));
+        let db_dir = Path::new(m.get_one::<String>("db_dir").map(|s| s.as_str()).unwrap_or("./db"));
         let db_path = db_dir.join(network_name);
 
         let default_daemon_port = match network.network_type {
@@ -219,30 +213,30 @@ impl Config {
         };
 
         let daemon_rpc_addr: SocketAddr = str_to_socketaddr(
-            m.value_of("daemon_rpc_addr")
+            m.get_one::<String>("daemon_rpc_addr").map(|s| s.as_str())
                 .unwrap_or(&format!("127.0.0.1:{}", default_daemon_port)),
             "Tapyrus RPC",
         );
         let electrum_rpc_addr: SocketAddr = str_to_socketaddr(
-            m.value_of("electrum_rpc_addr")
+            m.get_one::<String>("electrum_rpc_addr").map(|s| s.as_str())
                 .unwrap_or(&format!("127.0.0.1:{}", default_electrum_port)),
             "Electrum RPC",
         );
         let http_addr: SocketAddr = str_to_socketaddr(
-            m.value_of("http_addr")
+            m.get_one::<String>("http_addr").map(|s| s.as_str())
                 .unwrap_or(&format!("127.0.0.1:{}", default_http_port)),
             "HTTP Server",
         );
 
-        let http_socket_file: Option<PathBuf> = m.value_of("http_socket_file").map(PathBuf::from);
+        let http_socket_file: Option<PathBuf> = m.get_one::<String>("http_socket_file").map(PathBuf::from);
         let monitoring_addr: SocketAddr = str_to_socketaddr(
-            m.value_of("monitoring_addr")
+            m.get_one::<String>("monitoring_addr").map(|s| s.as_str())
                 .unwrap_or(&format!("127.0.0.1:{}", default_monitoring_port)),
             "Prometheus monitoring",
         );
 
         let daemon_dir = m
-            .value_of("daemon_dir")
+            .get_one::<String>("daemon_dir")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
                 let mut default_dir = home_dir().expect("no homedir");
@@ -251,19 +245,19 @@ impl Config {
                 default_dir
             });
         let blocks_dir = m
-            .value_of("blocks_dir")
+            .get_one::<String>("blocks_dir")
             .map(PathBuf::from)
             .unwrap_or_else(|| daemon_dir.join("blocks"));
-        let cookie = m.value_of("cookie").map(|s| s.to_owned());
+        let cookie = m.get_one::<String>("cookie").map(|s| s.to_owned());
 
-        let electrum_banner = m.value_of("electrum_banner").map_or_else(
+        let electrum_banner = m.get_one::<String>("electrum_banner").map_or_else(
             || format!("Welcome to electrs-esplora {}", ELECTRS_VERSION),
             |s| s.into(),
         );
 
         let mut log = stderrlog::new();
-        log.verbosity(m.occurrences_of("verbosity") as usize);
-        log.timestamp(if m.is_present("timestamp") {
+        log.verbosity(m.get_count("verbosity") as usize);
+        log.timestamp(if m.get_flag("timestamp") {
             stderrlog::Timestamp::Millisecond
         } else {
             stderrlog::Timestamp::Off
@@ -277,20 +271,20 @@ impl Config {
             blocks_dir,
             daemon_rpc_addr,
             cookie,
-            utxos_limit: value_t_or_exit!(m, "utxos_limit", usize),
+            utxos_limit: *m.get_one::<usize>("utxos_limit").unwrap(),
             electrum_rpc_addr,
-            electrum_txs_limit: value_t_or_exit!(m, "electrum_txs_limit", usize),
+            electrum_txs_limit: *m.get_one::<usize>("electrum_txs_limit").unwrap(),
             electrum_banner,
             http_addr,
             http_socket_file,
             monitoring_addr,
-            jsonrpc_import: m.is_present("jsonrpc_import"),
-            light_mode: m.is_present("light_mode"),
-            address_search: m.is_present("address_search"),
-            index_unspendables: m.is_present("index_unspendables"),
-            cors: m.value_of("cors").map(|s| s.to_string()),
-            precache_scripts: m.value_of("precache_scripts").map(|s| s.to_string()),
-            enable_open_assets: m.is_present("enable_open_assets"),
+            jsonrpc_import: m.get_flag("jsonrpc_import"),
+            light_mode: m.get_flag("light_mode"),
+            address_search: m.get_flag("address_search"),
+            index_unspendables: m.get_flag("index_unspendables"),
+            cors: m.get_one::<String>("cors").map(|s| s.to_string()),
+            precache_scripts: m.get_one::<String>("precache_scripts").map(|s| s.to_string()),
+            enable_open_assets: m.get_flag("enable_open_assets"),
         };
         eprintln!("{:?}", config);
         config
