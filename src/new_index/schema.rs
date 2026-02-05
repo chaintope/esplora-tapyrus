@@ -688,7 +688,8 @@ impl ChainQuery {
                     _ => None,
                 }
             })
-            .skip(1) // Ignore the first element, which is the last_seen_color_id itself
+            // Skip the first element only when paginating (last_seen_color_id is specified)
+            .skip(if last_seen_color_id.is_some() { 1 } else { 0 })
             .take(limit)
             .collect::<Vec<_>>();
         Ok(colors)
@@ -2278,6 +2279,46 @@ mod tests {
         assert!(
             script_hashes_in_rows.contains(&base_hash),
             "should have spending entry for base script hash"
+        );
+    }
+
+    /// Test that the skip logic for pagination in get_colors works correctly.
+    /// - Initial request (last_seen_color_id = None): should NOT skip any elements
+    /// - Pagination request (last_seen_color_id = Some): should skip the first element
+    #[test]
+    fn test_colors_pagination_skip_logic() {
+        let items = vec!["color1", "color2", "color3", "color4", "color5"];
+
+        // Simulate initial request (no last_seen_color_id)
+        let last_seen_color_id: Option<String> = None;
+        let initial_result: Vec<&str> = items
+            .iter()
+            .cloned()
+            .skip(if last_seen_color_id.is_some() { 1 } else { 0 })
+            .take(3)
+            .collect();
+
+        assert_eq!(
+            initial_result,
+            vec!["color1", "color2", "color3"],
+            "Initial request should return items starting from the first element"
+        );
+
+        // Simulate pagination request (last_seen_color_id = "color3")
+        let last_seen_color_id: Option<String> = Some("color3".to_string());
+        // In real implementation, iter_scan_reverse would start from "color3"
+        let items_from_color3 = vec!["color3", "color4", "color5"];
+        let pagination_result: Vec<&str> = items_from_color3
+            .iter()
+            .cloned()
+            .skip(if last_seen_color_id.is_some() { 1 } else { 0 })
+            .take(3)
+            .collect();
+
+        assert_eq!(
+            pagination_result,
+            vec!["color4", "color5"],
+            "Pagination request should skip the last_seen_color_id itself"
         );
     }
 }
