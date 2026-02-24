@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - arm64_image  # temporary: test CI build
   workflow_dispatch:
     inputs:
       tag:
@@ -46,7 +48,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: |
             tapyrus/esplora-tapyrus:${{ steps.meta.outputs.tag }}
             tapyrus/esplora-tapyrus:latest
