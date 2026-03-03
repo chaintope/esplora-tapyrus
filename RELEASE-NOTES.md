@@ -1,3 +1,6 @@
+# 0.5.7 (3 Mar 2026)
+* Remove Intel mac release build
+
 # 0.5.6 (3 Mar 2026)
 * Add arm64 platform support to Docker image build
 * Add release action(binary build and crate publish)
