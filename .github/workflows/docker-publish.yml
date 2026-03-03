@@ -56,6 +56,7 @@ jobs:
           tags: tapyrus/esplora-tapyrus:${{ steps.meta.outputs.tag }}-${{ matrix.suffix }}
           cache-from: type=gha,scope=${{ matrix.suffix }}
           cache-to: type=gha,scope=${{ matrix.suffix }},mode=max
+          provenance: false
 
   merge-manifests:
     needs: build
