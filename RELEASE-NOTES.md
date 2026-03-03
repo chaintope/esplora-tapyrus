@@ -1,3 +1,13 @@
+# 0.5.6 (3 Mar 2026)
+* Add arm64 platform support to Docker image build
+* Add release action(binary build and crate publish)
+* Update rust version in Dockerfile to 1.93
+* Bump time from 0.3.36 to 0.3.47
+
+# 0.5.5 (16 Feb 2026)
+* Fix /colors endpoint missing the most recent color
+* Bump dependency libs
+
 # 0.5.4 (4 Feb 2026)
 * Remove unused dependencies
 * Fix colored coin spending history not indexed for base script
