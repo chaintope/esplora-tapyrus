@@ -37,7 +37,7 @@ jobs:
             platform: x86_64-linux-musl
             use_cross: true
           - target: aarch64-unknown-linux-musl
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-latest
             artifact_name: electrs
             platform: aarch64-linux-musl
             use_cross: true

@@ -3,3 +3,9 @@ image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:main"
 
 [target.aarch64-unknown-linux-musl]
 image = "ghcr.io/cross-rs/aarch64-unknown-linux-musl:main"
+pre-build = [
+  # GMP's configure looks for tools named "aarch64-unknown-linux-musl-*"
+  # but cross-rs provides them as "aarch64-linux-musl-*".
+  # Create symlinks to bridge the naming mismatch.
+  "sh -c 'for tool in /usr/local/bin/aarch64-linux-musl-*; do ln -sf \"$tool\" \"/usr/local/bin/aarch64-unknown-linux-musl-$(basename $tool | sed s/aarch64-linux-musl-//)\"; done'",
+]
