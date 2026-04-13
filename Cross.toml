@@ -1,8 +1,8 @@
 [target.x86_64-unknown-linux-musl]
-image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:main"
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:0.2.5"
 
 [target.aarch64-unknown-linux-musl]
-image = "ghcr.io/cross-rs/aarch64-unknown-linux-musl:main"
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-musl:0.2.5"
 pre-build = [
   # GMP's configure looks for tools named "aarch64-unknown-linux-musl-*"
   # but cross-rs provides them as "aarch64-linux-musl-*".

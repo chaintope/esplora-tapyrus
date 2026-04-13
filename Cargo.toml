@@ -60,3 +60,4 @@ features = ["force-cross"]
 lto = true
 panic = 'abort'
 codegen-units = 1
+strip = true
