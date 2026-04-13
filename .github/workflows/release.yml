@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - 'task-161-add-musl-static-build-for-release'
 
 env:
   CARGO_INCREMENTAL: 0
@@ -22,31 +20,26 @@ jobs:
             artifact_name: electrs
             platform: x86_64-linux-gnu
             use_cross: false
-            strip: strip
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
             artifact_name: electrs
             platform: aarch64-linux-gnu
             use_cross: false
-            strip: strip
           - target: aarch64-apple-darwin
             runner: macos-14
             artifact_name: electrs
             platform: aarch64-apple-darwin
             use_cross: false
-            strip: strip
           - target: x86_64-unknown-linux-musl
             runner: ubuntu-latest
             artifact_name: electrs
             platform: x86_64-linux-musl
             use_cross: true
-            strip: strip
           - target: aarch64-unknown-linux-musl
             runner: ubuntu-latest
             artifact_name: electrs
             platform: aarch64-linux-musl
             use_cross: true
-            strip: aarch64-linux-gnu-strip
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -55,12 +48,7 @@ jobs:
 
       - name: Get version
         id: version
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
-          fi
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -78,7 +66,7 @@ jobs:
 
       - name: Install cross
         if: matrix.use_cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5
 
       - name: Build (cross)
         if: matrix.use_cross
@@ -98,13 +86,6 @@ jobs:
             echo "path=target/release/${{ matrix.artifact_name }}" >> $GITHUB_OUTPUT
             echo "dir=target/release" >> $GITHUB_OUTPUT
           fi
-
-      - name: Install cross-arch strip tool
-        if: matrix.strip != 'strip' && runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y binutils-aarch64-linux-gnu
-
-      - name: Strip binary
-        run: ${{ matrix.strip }} ${{ steps.binary.outputs.path }}
 
       - name: Create tarball
         env:
