@@ -14,6 +14,7 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
@@ -21,26 +22,31 @@ jobs:
             artifact_name: electrs
             platform: x86_64-linux-gnu
             use_cross: false
+            strip: strip
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
             artifact_name: electrs
             platform: aarch64-linux-gnu
             use_cross: false
+            strip: strip
           - target: aarch64-apple-darwin
             runner: macos-14
             artifact_name: electrs
             platform: aarch64-apple-darwin
             use_cross: false
+            strip: strip
           - target: x86_64-unknown-linux-musl
             runner: ubuntu-latest
             artifact_name: electrs
             platform: x86_64-linux-musl
             use_cross: true
+            strip: strip
           - target: aarch64-unknown-linux-musl
             runner: ubuntu-latest
             artifact_name: electrs
             platform: aarch64-linux-musl
             use_cross: true
+            strip: aarch64-linux-gnu-strip
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -93,8 +99,12 @@ jobs:
             echo "dir=target/release" >> $GITHUB_OUTPUT
           fi
 
+      - name: Install cross-arch strip tool
+        if: matrix.strip != 'strip' && runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y binutils-aarch64-linux-gnu
+
       - name: Strip binary
-        run: strip ${{ steps.binary.outputs.path }}
+        run: ${{ matrix.strip }} ${{ steps.binary.outputs.path }}
 
       - name: Create tarball
         env:
