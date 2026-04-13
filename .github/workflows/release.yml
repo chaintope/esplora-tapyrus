@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'task-161-add-musl-static-build-for-release'
 
 env:
   CARGO_INCREMENTAL: 0
@@ -18,14 +20,27 @@ jobs:
             runner: ubuntu-latest
             artifact_name: electrs
             platform: x86_64-linux-gnu
+            use_cross: false
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
             artifact_name: electrs
             platform: aarch64-linux-gnu
+            use_cross: false
           - target: aarch64-apple-darwin
             runner: macos-14
             artifact_name: electrs
             platform: aarch64-apple-darwin
+            use_cross: false
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+            artifact_name: electrs
+            platform: x86_64-linux-musl
+            use_cross: true
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            artifact_name: electrs
+            platform: aarch64-linux-musl
+            use_cross: true
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -34,7 +49,12 @@ jobs:
 
       - name: Get version
         id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -50,17 +70,37 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build
+      - name: Install cross
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.use_cross
+        run: cross build --release --locked --target ${{ matrix.target }}
+
+      - name: Build (cargo)
+        if: ${{ !matrix.use_cross }}
         run: cargo build --release --locked
 
+      - name: Set binary path
+        id: binary
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            echo "path=target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" >> $GITHUB_OUTPUT
+            echo "dir=target/${{ matrix.target }}/release" >> $GITHUB_OUTPUT
+          else
+            echo "path=target/release/${{ matrix.artifact_name }}" >> $GITHUB_OUTPUT
+            echo "dir=target/release" >> $GITHUB_OUTPUT
+          fi
+
       - name: Strip binary
-        run: strip target/release/${{ matrix.artifact_name }}
+        run: strip ${{ steps.binary.outputs.path }}
 
       - name: Create tarball
         env:
           ASSET_NAME: electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}
         run: |
-          cd target/release
+          cd ${{ steps.binary.outputs.dir }}
           tar czvf ${ASSET_NAME}.tar.gz ${{ matrix.artifact_name }}
 
       - name: Compute SHA256 (Linux)
@@ -68,7 +108,7 @@ jobs:
         env:
           ASSET_NAME: electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}
         run: |
-          cd target/release
+          cd ${{ steps.binary.outputs.dir }}
           sha256sum ${ASSET_NAME}.tar.gz > ${ASSET_NAME}.tar.gz.sha256
 
       - name: Compute SHA256 (macOS)
@@ -76,7 +116,7 @@ jobs:
         env:
           ASSET_NAME: electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}
         run: |
-          cd target/release
+          cd ${{ steps.binary.outputs.dir }}
           shasum -a 256 ${ASSET_NAME}.tar.gz > ${ASSET_NAME}.tar.gz.sha256
 
       - name: Upload artifact
@@ -84,10 +124,11 @@ jobs:
         with:
           name: electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}
           path: |
-            target/release/electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}.tar.gz
-            target/release/electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}.tar.gz.sha256
+            ${{ steps.binary.outputs.dir }}/electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}.tar.gz
+            ${{ steps.binary.outputs.dir }}/electrs-${{ steps.version.outputs.tag }}-${{ matrix.platform }}.tar.gz.sha256
 
   publish-crate:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -102,6 +143,7 @@ jobs:
         run: cargo publish
 
   release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     permissions:
